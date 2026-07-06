@@ -1,24 +1,9 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { Redirect } from 'expo-router';
 
-export default function HomeScreen() {
-  return (
-    <View style={styles.container}>
-      <Text style={styles.title}>BP Security</Text>
-      <Text>Fase 0 completa — listo para construir Auth (Fase 1).</Text>
-    </View>
-  );
+import { useAuthStore } from '@/src/features/auth/store/authStore';
+
+export default function IndexRoute() {
+  const token = useAuthStore((state) => state.token);
+
+  return <Redirect href={token ? '/(app)' : '/(auth)/login'} />;
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: '600',
-  },
-});
