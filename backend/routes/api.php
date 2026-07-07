@@ -4,6 +4,9 @@ use App\Http\Controllers\Api\Admin\CommunityApprovalController;
 use App\Http\Controllers\Api\Auth\AuthController;
 use App\Http\Controllers\Api\Communities\CommunityController;
 use App\Http\Controllers\Api\Communities\MembershipController;
+use App\Http\Controllers\Api\Communities\MuroController;
+use App\Http\Controllers\Api\Panic\PanicAlertController;
+use App\Http\Controllers\Api\Reports\ReportController;
 use App\Http\Controllers\Api\Users\EmergencyContactController;
 use App\Http\Controllers\Api\Users\ProfileController;
 use Illuminate\Support\Facades\Route;
@@ -37,10 +40,28 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('solicitudes-membresia/{solicitud}/rechazar', [MembershipController::class, 'rechazar']);
     Route::get('comunidades/{comunidad}/miembros', [MembershipController::class, 'miembros']);
     Route::delete('comunidades/{comunidad}/miembros/{miembro}', [MembershipController::class, 'expulsar']);
+    Route::get('comunidades/{comunidad}/muro', [MuroController::class, 'index']);
+
+    Route::post('alertas-panico', [PanicAlertController::class, 'activar'])->middleware('throttle:panic');
+    Route::get('alertas-panico', [PanicAlertController::class, 'propias']);
+    Route::get('comunidades/{comunidad}/alertas-panico', [PanicAlertController::class, 'porComunidad']);
+    Route::patch('alertas-panico/{alerta}/reconocer', [PanicAlertController::class, 'reconocer']);
+    Route::patch('alertas-panico/{alerta}/resolver', [PanicAlertController::class, 'resolver']);
+    Route::patch('alertas-panico/{alerta}/falsa-alarma', [PanicAlertController::class, 'falsaAlarma']);
+    Route::patch('alertas-panico/{alerta}/cancelar', [PanicAlertController::class, 'cancelar']);
+    Route::delete('alertas-panico/{alerta}', [PanicAlertController::class, 'eliminar']);
+
+    Route::post('reportes', [ReportController::class, 'crear'])->middleware('throttle:reports');
+    Route::get('reportes', [ReportController::class, 'propios']);
+    Route::get('reportes/{reporte}', [ReportController::class, 'detalle']);
+    Route::patch('reportes/{reporte}/estado', [ReportController::class, 'cambiarEstado']);
+    Route::delete('reportes/{reporte}', [ReportController::class, 'eliminar']);
+    Route::get('comunidades/{comunidad}/reportes', [ReportController::class, 'porComunidad']);
 
     Route::middleware('admin')->prefix('admin')->group(function () {
         Route::get('comunidades/pendientes', [CommunityApprovalController::class, 'pendientes']);
         Route::post('comunidades/solicitudes/{solicitud}/aprobar', [CommunityApprovalController::class, 'aprobar']);
         Route::post('comunidades/solicitudes/{solicitud}/rechazar', [CommunityApprovalController::class, 'rechazar']);
+        Route::get('alertas-panico/sin-comunidad', [PanicAlertController::class, 'sinComunidad']);
     });
 });

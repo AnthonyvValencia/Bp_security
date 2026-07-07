@@ -1,6 +1,9 @@
 <?php
 
 use App\Domain\Communities\Exceptions\ReglaComunidadException;
+use App\Domain\Panic\Exceptions\ReglaAlertaException;
+use App\Domain\Reports\Exceptions\ReglaReporteException;
+use App\Http\Middleware\ActualizarUltimaActividad;
 use App\Http\Middleware\EnsureUserIsAdmin;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -16,6 +19,7 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias(['admin' => EnsureUserIsAdmin::class]);
+        $middleware->api(append: [ActualizarUltimaActividad::class]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(
@@ -23,6 +27,14 @@ return Application::configure(basePath: dirname(__DIR__))
         );
 
         $exceptions->render(function (ReglaComunidadException $e, Request $request) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        });
+
+        $exceptions->render(function (ReglaAlertaException $e, Request $request) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        });
+
+        $exceptions->render(function (ReglaReporteException $e, Request $request) {
             return response()->json(['message' => $e->getMessage()], 422);
         });
     })->create();

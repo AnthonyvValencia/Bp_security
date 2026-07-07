@@ -34,6 +34,7 @@ class UsuarioResource extends JsonResource
             'condiciones_medicas' => $this->condiciones_medicas,
             'latitud' => $this->latitud,
             'longitud' => $this->longitud,
+            'miembro_desde' => $this->created_at,
             'contactos_emergencia' => ContactoEmergenciaResource::collection(
                 $this->whenLoaded('contactosEmergencia'),
             ),

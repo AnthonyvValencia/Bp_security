@@ -35,6 +35,7 @@ use Laravel\Sanctum\HasApiTokens;
     'condiciones_medicas',
     'latitud',
     'longitud',
+    'ultima_actividad_en',
 ])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
@@ -68,6 +69,7 @@ class User extends Authenticatable
             'tipo_sangre' => TipoSangre::class,
             'latitud' => 'decimal:7',
             'longitud' => 'decimal:7',
+            'ultima_actividad_en' => 'datetime',
         ];
     }
 
@@ -77,6 +79,22 @@ class User extends Authenticatable
     public function contactosEmergencia(): HasMany
     {
         return $this->hasMany(ContactoEmergencia::class, 'usuario_id');
+    }
+
+    /**
+     * @return HasMany<AlertaPanico, $this>
+     */
+    public function alertasPanico(): HasMany
+    {
+        return $this->hasMany(AlertaPanico::class, 'usuario_id');
+    }
+
+    /**
+     * @return HasMany<Reporte, $this>
+     */
+    public function reportes(): HasMany
+    {
+        return $this->hasMany(Reporte::class, 'usuario_id');
     }
 
     /**

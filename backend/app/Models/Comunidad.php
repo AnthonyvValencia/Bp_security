@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Domain\Communities\Enums\EstadoComunidad;
+use App\Domain\Communities\Enums\EstadoMiembro;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -49,10 +50,39 @@ class Comunidad extends Model
     }
 
     /**
+     * Miembros activos con actividad en los últimos 5 minutos — aproximación
+     * simple de "presencia en línea" sin necesidad de WebSockets.
+     *
+     * @return HasMany<ComunidadMiembro, $this>
+     */
+    public function miembrosConectados(): HasMany
+    {
+        return $this->miembros()
+            ->where('estado', EstadoMiembro::Activo)
+            ->whereHas('usuario', fn ($query) => $query->where('ultima_actividad_en', '>=', now()->subMinutes(5)));
+    }
+
+    /**
      * @return HasMany<SolicitudMembresia, $this>
      */
     public function solicitudes(): HasMany
     {
         return $this->hasMany(SolicitudMembresia::class, 'comunidad_id');
+    }
+
+    /**
+     * @return HasMany<AlertaPanico, $this>
+     */
+    public function alertasPanico(): HasMany
+    {
+        return $this->hasMany(AlertaPanico::class, 'comunidad_id');
+    }
+
+    /**
+     * @return HasMany<Reporte, $this>
+     */
+    public function reportes(): HasMany
+    {
+        return $this->hasMany(Reporte::class, 'comunidad_id');
     }
 }

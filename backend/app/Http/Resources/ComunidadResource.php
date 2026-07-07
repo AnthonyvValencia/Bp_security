@@ -28,6 +28,7 @@ class ComunidadResource extends JsonResource
                 'apellidos' => $this->lider->apellidos,
             ]),
             'total_miembros' => $this->whenCounted('miembros'),
+            'vecinos_conectados' => $this->whenCounted('miembrosConectados'),
             'creado_en' => $this->created_at,
         ];
     }

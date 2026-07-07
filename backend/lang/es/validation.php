@@ -148,6 +148,14 @@ return [
         'token' => 'código de recuperación',
         'nombre' => 'nombre',
         'parentesco' => 'parentesco',
+        'id_cliente' => 'identificador de la alerta',
+        'creada_en' => 'hora de activación',
+        'notas' => 'notas',
+        'titulo' => 'título',
+        'descripcion' => 'descripción',
+        'categoria' => 'categoría',
+        'estado' => 'estado',
+        'comentario' => 'comentario',
     ],
 
 ];

@@ -118,3 +118,25 @@ it('la búsqueda de comunidades solo devuelve las aprobadas', function () {
     $nombres = collect($respuesta->json('comunidades'))->pluck('nombre');
     expect($nombres)->toContain('Aprobada A')->not->toContain('Pendiente B');
 });
+
+it('mi-comunidad cuenta solo los vecinos con actividad reciente como conectados', function () {
+    $lider = User::factory()->create();
+    $comunidad = Comunidad::create([
+        'nombre' => 'Comunidad Conectados',
+        'barrio' => 'Barrio Test',
+        'lider_id' => $lider->id,
+        'estado' => EstadoComunidad::Aprobada,
+    ]);
+
+    $activo = User::factory()->create(['ultima_actividad_en' => now()]);
+    $inactivo = User::factory()->create(['ultima_actividad_en' => now()->subHours(2)]);
+
+    ComunidadMiembro::create(['comunidad_id' => $comunidad->id, 'usuario_id' => $activo->id, 'estado' => EstadoMiembro::Activo]);
+    ComunidadMiembro::create(['comunidad_id' => $comunidad->id, 'usuario_id' => $inactivo->id, 'estado' => EstadoMiembro::Activo]);
+
+    $respuesta = $this->actingAs($activo)->getJson('/api/mi-comunidad');
+
+    // El propio request del actingAs actualiza su ultima_actividad_en vía middleware,
+    // así que además de $activo, el líder no cuenta (no es miembro consultante aquí).
+    $respuesta->assertOk()->assertJsonPath('comunidad.vecinos_conectados', 1);
+});
