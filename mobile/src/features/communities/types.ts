@@ -17,6 +17,7 @@ export interface Comunidad {
   estado: EstadoComunidad;
   lider?: LiderResumen;
   total_miembros?: number;
+  vecinos_conectados?: number;
   creado_en: string;
 }
 
@@ -52,3 +53,31 @@ export interface SolicitarCrearComunidadPayload {
   descripcion?: string;
   barrio: string;
 }
+
+interface MuroUsuarioResumen {
+  id: number;
+  nombres: string;
+  apellidos: string;
+}
+
+export interface MuroAlertaPanico {
+  tipo: 'alerta_panico';
+  id: number;
+  estado: string;
+  creado_en: string;
+  latitud: number | null;
+  longitud: number | null;
+  usuario: MuroUsuarioResumen;
+}
+
+export interface MuroReporte {
+  tipo: 'reporte';
+  id: number;
+  estado: string;
+  categoria: string;
+  titulo: string;
+  creado_en: string;
+  usuario: MuroUsuarioResumen;
+}
+
+export type MuroItem = MuroAlertaPanico | MuroReporte;

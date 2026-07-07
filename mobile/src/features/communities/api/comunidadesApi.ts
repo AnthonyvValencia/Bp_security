@@ -3,6 +3,7 @@ import { httpClient } from '@/src/shared/api/httpClient';
 import type {
   Comunidad,
   ComunidadMiembro,
+  MuroItem,
   SolicitarCrearComunidadPayload,
   SolicitudMembresia,
 } from '@/src/features/communities/types';
@@ -97,5 +98,13 @@ export const comunidadesApi = {
 
   rechazarComunidad: async (solicitudId: number, motivo?: string): Promise<void> => {
     await httpClient.post(`/admin/comunidades/solicitudes/${solicitudId}/rechazar`, { motivo });
+  },
+
+  muro: async (comunidadId: number): Promise<MuroItem[]> => {
+    const { data } = await httpClient.get<{ muro: MuroItem[] }>(
+      `/comunidades/${comunidadId}/muro`,
+    );
+
+    return data.muro;
   },
 };

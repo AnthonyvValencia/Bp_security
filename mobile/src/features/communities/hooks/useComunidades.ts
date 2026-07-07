@@ -42,3 +42,12 @@ export function useSolicitarIngreso() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: CLAVE_MI_COMUNIDAD }),
   });
 }
+
+export function useMuroComunidad(comunidadId: number) {
+  return useQuery({
+    queryKey: ['comunidad', comunidadId, 'muro'],
+    queryFn: () => comunidadesApi.muro(comunidadId),
+    enabled: Number.isFinite(comunidadId) && comunidadId > 0,
+    refetchInterval: 15000,
+  });
+}

@@ -27,6 +27,7 @@ export interface Usuario {
   condiciones_medicas: string | null;
   latitud: number | null;
   longitud: number | null;
+  miembro_desde: string;
   contactos_emergencia?: ContactoEmergencia[];
 }
 
