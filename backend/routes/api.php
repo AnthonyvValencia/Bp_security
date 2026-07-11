@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\Admin\CommunityApprovalController;
 use App\Http\Controllers\Api\Auth\AuthController;
+use App\Http\Controllers\Api\Chat\ChatController;
 use App\Http\Controllers\Api\Communities\CommunityController;
 use App\Http\Controllers\Api\Communities\MembershipController;
 use App\Http\Controllers\Api\Communities\MuroController;
@@ -57,6 +58,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::patch('reportes/{reporte}/estado', [ReportController::class, 'cambiarEstado']);
     Route::delete('reportes/{reporte}', [ReportController::class, 'eliminar']);
     Route::get('comunidades/{comunidad}/reportes', [ReportController::class, 'porComunidad']);
+
+    Route::get('comunidades/{comunidad}/chat', [ChatController::class, 'index']);
+    Route::post('comunidades/{comunidad}/chat', [ChatController::class, 'enviar'])->middleware('throttle:chat');
+    Route::delete('chat/mensajes/{mensaje}', [ChatController::class, 'eliminar']);
 
     Route::middleware('admin')->prefix('admin')->group(function () {
         Route::get('comunidades/pendientes', [CommunityApprovalController::class, 'pendientes']);

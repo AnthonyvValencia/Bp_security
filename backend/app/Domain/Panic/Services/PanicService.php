@@ -5,6 +5,7 @@ namespace App\Domain\Panic\Services;
 use App\Domain\Audit\Services\Auditor;
 use App\Domain\Panic\DTOs\ActivarAlertaData;
 use App\Domain\Panic\Enums\EstadoAlerta;
+use App\Domain\Panic\Events\AlertaPanicoActualizada;
 use App\Domain\Panic\Exceptions\ReglaAlertaException;
 use App\Models\AlertaPanico;
 use App\Models\Comunidad;
@@ -43,6 +44,8 @@ class PanicService
 
         $this->auditor->registrar('alerta_panico_activada', usuario: $usuario, entidadTipo: AlertaPanico::class, entidadId: $alerta->id);
 
+        AlertaPanicoActualizada::dispatch($alerta);
+
         return $alerta;
     }
 
@@ -60,6 +63,8 @@ class PanicService
         $alerta->update(['estado' => EstadoAlerta::Cancelada]);
 
         $this->auditor->registrar('alerta_panico_cancelada', usuario: $usuario, entidadTipo: AlertaPanico::class, entidadId: $alerta->id);
+
+        AlertaPanicoActualizada::dispatch($alerta);
 
         return $alerta;
     }
@@ -89,6 +94,8 @@ class PanicService
 
         $this->auditor->registrar('alerta_panico_reconocida', usuario: $lider, entidadTipo: AlertaPanico::class, entidadId: $alerta->id);
 
+        AlertaPanicoActualizada::dispatch($alerta);
+
         return $alerta;
     }
 
@@ -105,6 +112,8 @@ class PanicService
 
         $this->auditor->registrar('alerta_panico_resuelta', usuario: $lider, entidadTipo: AlertaPanico::class, entidadId: $alerta->id);
 
+        AlertaPanicoActualizada::dispatch($alerta);
+
         return $alerta;
     }
 
@@ -120,6 +129,8 @@ class PanicService
         ]);
 
         $this->auditor->registrar('alerta_panico_falsa_alarma', usuario: $lider, entidadTipo: AlertaPanico::class, entidadId: $alerta->id);
+
+        AlertaPanicoActualizada::dispatch($alerta);
 
         return $alerta;
     }

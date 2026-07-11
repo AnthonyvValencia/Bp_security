@@ -1,5 +1,6 @@
 <?php
 
+use App\Domain\Chat\Exceptions\ReglaChatException;
 use App\Domain\Communities\Exceptions\ReglaComunidadException;
 use App\Domain\Panic\Exceptions\ReglaAlertaException;
 use App\Domain\Reports\Exceptions\ReglaReporteException;
@@ -17,13 +18,17 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
+    ->withBroadcasting(
+        __DIR__.'/../routes/channels.php',
+        ['middleware' => ['api', 'auth:sanctum']],
+    )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias(['admin' => EnsureUserIsAdmin::class]);
         $middleware->api(append: [ActualizarUltimaActividad::class]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(
-            fn (Request $request) => $request->is('api/*'),
+            fn (Request $request) => $request->is('api/*') || $request->is('broadcasting/*'),
         );
 
         $exceptions->render(function (ReglaComunidadException $e, Request $request) {
@@ -35,6 +40,10 @@ return Application::configure(basePath: dirname(__DIR__))
         });
 
         $exceptions->render(function (ReglaReporteException $e, Request $request) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        });
+
+        $exceptions->render(function (ReglaChatException $e, Request $request) {
             return response()->json(['message' => $e->getMessage()], 422);
         });
     })->create();

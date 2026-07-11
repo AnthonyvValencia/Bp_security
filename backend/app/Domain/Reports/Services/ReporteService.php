@@ -5,6 +5,7 @@ namespace App\Domain\Reports\Services;
 use App\Domain\Audit\Services\Auditor;
 use App\Domain\Reports\DTOs\CrearReporteData;
 use App\Domain\Reports\Enums\EstadoReporte;
+use App\Domain\Reports\Events\ReporteActualizado;
 use App\Domain\Reports\Exceptions\ReglaReporteException;
 use App\Models\Comunidad;
 use App\Models\Reporte;
@@ -39,6 +40,8 @@ class ReporteService
 
         $this->auditor->registrar('reporte_creado', usuario: $usuario, entidadTipo: Reporte::class, entidadId: $reporte->id);
 
+        ReporteActualizado::dispatch($reporte);
+
         return $reporte;
     }
 
@@ -48,7 +51,7 @@ class ReporteService
             throw new ReglaReporteException('El reporte ya se encuentra en ese estado.');
         }
 
-        return DB::transaction(function () use ($reporte, $lider, $nuevoEstado, $comentario) {
+        $reporte = DB::transaction(function () use ($reporte, $lider, $nuevoEstado, $comentario) {
             $reporte->historialEstados()->create([
                 'estado_anterior' => $reporte->estado,
                 'estado_nuevo' => $nuevoEstado,
@@ -64,6 +67,11 @@ class ReporteService
 
             return $reporte;
         });
+
+        // Después del commit: si la transacción falla, no se emite el evento.
+        ReporteActualizado::dispatch($reporte);
+
+        return $reporte;
     }
 
     /**

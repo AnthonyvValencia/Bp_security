@@ -156,6 +156,7 @@ return [
         'categoria' => 'categoría',
         'estado' => 'estado',
         'comentario' => 'comentario',
+        'contenido' => 'mensaje',
     ],
 
 ];

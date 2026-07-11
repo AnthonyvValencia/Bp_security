@@ -3,11 +3,13 @@
 use App\Domain\Communities\Enums\EstadoComunidad;
 use App\Domain\Communities\Enums\EstadoMiembro;
 use App\Domain\Reports\Enums\EstadoReporte;
+use App\Domain\Reports\Events\ReporteActualizado;
 use App\Domain\Users\Enums\RolUsuario;
 use App\Models\Comunidad;
 use App\Models\ComunidadMiembro;
 use App\Models\Reporte;
 use App\Models\User;
+use Illuminate\Support\Facades\Event;
 
 function crearComunidadReportes(User $lider, string $nombre = 'Comunidad Test'): Comunidad
 {
@@ -59,6 +61,19 @@ it('un miembro de una comunidad crea un reporte asociado a ella', function () {
         ->assertJsonPath('reporte.comunidad_id', $comunidad->id)
         ->assertJsonPath('reporte.estado', 'abierto')
         ->assertJsonPath('reporte.categoria', 'persona_sospechosa');
+});
+
+it('crear un reporte dispara el broadcast en tiempo real', function () {
+    Event::fake([ReporteActualizado::class]);
+
+    $lider = User::factory()->create(['rol' => RolUsuario::Lider]);
+    $comunidad = crearComunidadReportes($lider);
+    $ciudadano = User::factory()->create();
+    agregarMiembro($comunidad, $ciudadano);
+
+    $this->actingAs($ciudadano)->postJson('/api/reportes', reportePayload())->assertCreated();
+
+    Event::assertDispatched(ReporteActualizado::class);
 });
 
 it('aplica el límite de 10 reportes por hora por usuario', function () {

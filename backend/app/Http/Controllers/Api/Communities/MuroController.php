@@ -51,6 +51,7 @@ class MuroController extends Controller
                 'estado' => $reporte->estado->value,
                 'categoria' => $reporte->categoria->value,
                 'titulo' => $reporte->titulo,
+                'descripcion' => $reporte->descripcion,
                 'creado_en' => $reporte->created_at,
                 'usuario' => [
                     'id' => $reporte->usuario->id,

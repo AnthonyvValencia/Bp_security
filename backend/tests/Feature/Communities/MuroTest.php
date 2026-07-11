@@ -52,6 +52,9 @@ it('un miembro activo ve el muro de incidencias de su comunidad', function () {
         ->assertOk();
 
     expect($respuesta->json('muro'))->toHaveCount(2);
+
+    $reporteEnMuro = collect($respuesta->json('muro'))->firstWhere('tipo', 'reporte');
+    expect($reporteEnMuro['descripcion'])->toBe('La luz de la esquina no enciende.');
 });
 
 it('un usuario ajeno a la comunidad no puede ver su muro de incidencias', function () {
