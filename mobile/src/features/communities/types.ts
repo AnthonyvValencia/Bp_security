@@ -76,6 +76,7 @@ export interface MuroReporte {
   estado: string;
   categoria: string;
   titulo: string;
+  descripcion: string;
   creado_en: string;
   usuario: MuroUsuarioResumen;
 }

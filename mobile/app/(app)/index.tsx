@@ -46,7 +46,10 @@ export default function DashboardScreen() {
     void sincronizarPendientes();
   }, [hidratar, sincronizarPendientes]);
 
-  const esLider = usuario?.rol === 'lider' && comunidad?.lider?.id === usuario.id;
+  // El liderazgo se determina por ser el lider_id de la comunidad (igual que
+  // las Policies del backend), no por el rol: aprobar una comunidad asigna
+  // lider_id pero no cambia el rol del usuario.
+  const esLider = comunidad?.lider?.id === usuario?.id;
   const esAdmin = usuario?.rol === 'administrador';
 
   const manejarActivacion = async () => {
@@ -71,8 +74,18 @@ export default function DashboardScreen() {
     });
   };
 
-  const abrirChat = () =>
-    Alert.alert('Próximamente', 'El chat vecinal estará disponible en una próxima actualización.');
+  const abrirChat = () => {
+    if (!comunidad) {
+      Alert.alert(
+        'Sin comunidad',
+        'Únete a una comunidad para participar en su chat vecinal.',
+      );
+
+      return;
+    }
+
+    router.push('/(app)/chat');
+  };
 
   return (
     <PantallaSegura>
@@ -141,7 +154,11 @@ export default function DashboardScreen() {
             {!muro || muro.length === 0 ? (
               <Text style={styles.muroVacio}>No hay incidencias recientes en tu comunidad.</Text>
             ) : (
-              muro.map((item) => <MuroIncidenciaCard key={`${item.tipo}-${item.id}`} item={item} />)
+              // El muro llega ordenado de más reciente a más antiguo, así que
+              // las primeras 5 son las últimas 5 incidencias.
+              muro
+                .slice(0, 5)
+                .map((item) => <MuroIncidenciaCard key={`${item.tipo}-${item.id}`} item={item} />)
             )}
           </>
         ) : null}

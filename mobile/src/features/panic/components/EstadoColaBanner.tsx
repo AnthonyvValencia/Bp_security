@@ -13,7 +13,11 @@ function describirEstado(cola: AlertaEnCola[]): string | null {
   }
 
   if (cola.some((alerta) => alerta.estadoSync === 'error')) {
-    return `${cola.length} alerta(s) sin conexión. Se reintentará automáticamente al recuperar internet.`;
+    const sinRed = cola.some((alerta) => alerta.estadoSync === 'error' && alerta.sinRed);
+
+    return sinRed
+      ? `${cola.length} alerta(s) sin conexión. Se reintentará automáticamente al recuperar internet.`
+      : `${cola.length} alerta(s) no se pudo(eron) enviar. Reintentando…`;
   }
 
   return `${cola.length} alerta(s) pendiente(s) de sincronizar.`;

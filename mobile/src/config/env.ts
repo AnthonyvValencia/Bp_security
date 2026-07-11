@@ -16,3 +16,17 @@ function resolveApiBaseUrl(): string {
 }
 
 export const API_BASE_URL = resolveApiBaseUrl();
+
+/**
+ * Raíz del servidor sin el sufijo /api — la necesita /broadcasting/auth,
+ * que Laravel registra fuera del prefijo de la API REST.
+ */
+export const SERVER_ROOT_URL = API_BASE_URL.replace(/\/api\/?$/, '');
+
+/**
+ * Host LAN para el servidor de Reverb (WebSockets). Debe apuntar a la misma
+ * IP que EXPO_PUBLIC_API_URL cuando se prueba en un dispositivo físico.
+ */
+export const REVERB_HOST = process.env.EXPO_PUBLIC_REVERB_HOST ?? 'localhost';
+export const REVERB_PORT = Number(process.env.EXPO_PUBLIC_REVERB_PORT ?? 8080);
+export const REVERB_APP_KEY = process.env.EXPO_PUBLIC_REVERB_APP_KEY ?? '';

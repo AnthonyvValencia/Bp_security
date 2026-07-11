@@ -45,7 +45,8 @@ export default function ReportesScreen() {
   const { mutate: eliminarReporte } = useEliminarReporte();
   const { mutate: eliminarAlerta } = useEliminarAlerta();
 
-  const esLider = usuario?.rol === 'lider' && miComunidad?.lider?.id === usuario.id;
+  // Liderazgo por lider_id (igual que las Policies del backend), no por rol.
+  const esLider = miComunidad?.lider?.id === usuario?.id;
   const cargando = cargandoReportes || cargandoAlertas;
 
   const confirmarEliminarReporte = (reporteId: number) => {

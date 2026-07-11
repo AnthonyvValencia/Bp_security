@@ -1,8 +1,13 @@
 import NetInfo from '@react-native-community/netinfo';
+import { isAxiosError } from 'axios';
 import * as Crypto from 'expo-crypto';
 import { create } from 'zustand';
 
 import { panicApi } from '@/src/features/panic/api/panicApi';
+import {
+  CLAVE_HISTORIAL_PROPIO,
+  upsertAlertaEnCache,
+} from '@/src/features/panic/services/alertasCache';
 import { offlineQueue, type AlertaLocal } from '@/src/features/panic/services/offlineQueue';
 import type { EstadoAlerta } from '@/src/features/panic/types';
 
@@ -10,6 +15,12 @@ export type EstadoSincronizacion = 'pendiente' | 'enviando' | 'error';
 
 export interface AlertaEnCola extends AlertaLocal {
   estadoSync: EstadoSincronizacion;
+  /**
+   * true solo si el error fue de red real (sin respuesta del servidor);
+   * false si el servidor respondió y rechazó la petición (ej. límite de
+   * alertas por minuto) — en ese caso "sin conexión" sería engañoso.
+   */
+  sinRed?: boolean;
 }
 
 export interface AlertaEnCurso {
@@ -35,6 +46,13 @@ interface PanicState {
   cancelarEnCurso: () => Promise<void>;
   descartarAlertaEnCurso: () => void;
 }
+
+// Si llega una alerta nueva mientras ya hay una pasada de sincronización en
+// curso (activar() la dispara en cada pulsación), esa pasada solo procesó la
+// foto de pendientes que tomó al empezar — la nueva quedaría esperando hasta
+// el próximo disparador (cambio de red o el barrido de 20s). Esta bandera
+// hace que, en vez de eso, se dispare una pasada más apenas termine la actual.
+let reintentarAlTerminar = false;
 
 export const usePanicStore = create<PanicState>((set, get) => ({
   cola: [],
@@ -68,7 +86,13 @@ export const usePanicStore = create<PanicState>((set, get) => ({
       alertaEnCurso: { idCliente: alertaLocal.id_cliente, alertaId: null, estado: null },
     }));
 
-    void get().sincronizarPendientes();
+    // Si ya hay una pasada en curso, marca que hay nuevas alertas esperando.
+    // Se dispararán apenas termine la actual (ver below en el finally).
+    if (get().sincronizando) {
+      reintentarAlTerminar = true;
+    } else {
+      void get().sincronizarPendientes();
+    }
   },
 
   sincronizarPendientes: async () => {
@@ -98,6 +122,10 @@ export const usePanicStore = create<PanicState>((set, get) => ({
 
           await offlineQueue.eliminar(alerta.id_cliente);
 
+          // Refleja la alerta confirmada en el historial al instante, sin
+          // esperar al evento de Reverb ni a un refetch (vía más directa).
+          upsertAlertaEnCache(CLAVE_HISTORIAL_PROPIO, respuesta);
+
           set((estado) => ({
             cola: estado.cola.filter((item) => item.id_cliente !== alerta.id_cliente),
             alertaEnCurso:
@@ -105,18 +133,34 @@ export const usePanicStore = create<PanicState>((set, get) => ({
                 ? { idCliente: alerta.id_cliente, alertaId: respuesta.id, estado: respuesta.estado }
                 : estado.alertaEnCurso,
           }));
-        } catch {
+        } catch (error) {
           await offlineQueue.marcarError(alerta.id_cliente);
+
+          // Sin response = no llegó al servidor (red real). Con response
+          // (ej. 429 por el límite de alertas/minuto) el servidor sí está
+          // disponible, solo rechazó esta petición puntual.
+          const sinRed = !(isAxiosError(error) && error.response);
 
           set((estado) => ({
             cola: estado.cola.map((item) =>
-              item.id_cliente === alerta.id_cliente ? { ...item, estadoSync: 'error' } : item,
+              item.id_cliente === alerta.id_cliente
+                ? { ...item, estadoSync: 'error', sinRed }
+                : item,
             ),
           }));
         }
       }
     } finally {
       set({ sincronizando: false });
+
+      // Si llegaron alertas nuevas mientras estábamos sincronizando, dispara
+      // una pasada más para procesarlas. Sin esto, una alerta que llegue justo
+      // al final de la pasada anterior quedaría esperando hasta el próximo
+      // cambio de red o el barrido de 20s.
+      if (reintentarAlTerminar) {
+        reintentarAlTerminar = false;
+        void get().sincronizarPendientes();
+      }
     }
   },
 
@@ -138,7 +182,9 @@ export const usePanicStore = create<PanicState>((set, get) => ({
       return;
     }
 
-    await panicApi.cancelar(actual.alertaId);
+    const alertaCancelada = await panicApi.cancelar(actual.alertaId);
+
+    upsertAlertaEnCache(CLAVE_HISTORIAL_PROPIO, alertaCancelada);
 
     set({ alertaEnCurso: null });
   },
@@ -151,3 +197,12 @@ NetInfo.addEventListener((estadoRed) => {
     void usePanicStore.getState().sincronizarPendientes();
   }
 });
+
+// Respaldo además del listener de red: un rechazo del servidor (ej. límite
+// de alertas por minuto) no dispara un cambio de conectividad, así que sin
+// esto una alerta en cola quedaría esperando indefinidamente.
+setInterval(() => {
+  if (usePanicStore.getState().cola.length > 0) {
+    void usePanicStore.getState().sincronizarPendientes();
+  }
+}, 20000);
