@@ -171,7 +171,9 @@ export default function DetalleComunidadScreen() {
           ) : null}
         </View>
 
-        {!esLider && !esMiembro ? (
+        {/* El admin gestiona comunidades, no participa en ellas como vecino:
+            no se une ni sale, solo entra a ver los miembros. */}
+        {!esLider && !esMiembro && !esAdmin ? (
           !yaTieneComunidad ? (
             <Boton titulo="Solicitar unirme" cargando={isPending} onPress={solicitar} />
           ) : (

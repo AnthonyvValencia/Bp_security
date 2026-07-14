@@ -17,6 +17,8 @@ import { colors } from '@/src/shared/theme/colors';
 export default function ComunidadesScreen() {
   const [termino, setTermino] = useState('');
   const usuario = useAuthStore((state) => state.usuario);
+  // El admin gestiona comunidades desde su panel: no crea ni se une a ninguna.
+  const esAdmin = usuario?.rol === 'administrador';
   const { data: miComunidad, isLoading: cargandoMiComunidad } = useMiComunidad();
   const {
     data: comunidades,
@@ -41,7 +43,7 @@ export default function ComunidadesScreen() {
           </View>
           <Ionicons name="chevron-forward" size={20} color={colors.textoSecundario} />
         </Pressable>
-      ) : !cargandoMiComunidad ? (
+      ) : !cargandoMiComunidad && !esAdmin ? (
         <Boton
           titulo="Solicitar crear una comunidad"
           variante="secundario"
@@ -72,7 +74,7 @@ export default function ComunidadesScreen() {
         />
       )}
 
-      {usuario?.rol === 'administrador' ? (
+      {esAdmin ? (
         <Link href="/(app)/admin/communities-management" style={styles.enlaceAdmin}>
           Gestión de comunidades (admin)
         </Link>

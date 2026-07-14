@@ -9,9 +9,31 @@ import { obtenerEcho } from '@/src/shared/services/realtime';
 export const CLAVE_MI_COMUNIDAD = ['mi-comunidad'] as const;
 
 export function useBuscarComunidades(termino?: string) {
+  const queryClient = useQueryClient();
+
+  // El catálogo cambia cuando el admin aprueba, suspende, reactiva o elimina
+  // una comunidad: el canal compartido avisa y la lista se refresca al
+  // instante para todos (la comunidad eliminada/suspendida desaparece sola).
+  useEffect(() => {
+    const canal = obtenerEcho().private('comunidades');
+
+    const manejador = () => {
+      void queryClient.invalidateQueries({ queryKey: ['comunidades'] });
+    };
+
+    canal.listen('.comunidad.catalogo', manejador);
+
+    return () => {
+      canal.stopListening('.comunidad.catalogo', manejador);
+    };
+  }, [queryClient]);
+
   return useQuery({
     queryKey: ['comunidades', termino ?? ''],
     queryFn: () => comunidadesApi.buscar(termino),
+    // Al volver al catálogo siempre se refetchea (red de seguridad si el
+    // WebSocket estaba caído cuando cambió la lista).
+    staleTime: 0,
   });
 }
 

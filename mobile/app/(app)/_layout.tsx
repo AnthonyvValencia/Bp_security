@@ -1,5 +1,6 @@
 import { Redirect, Stack } from 'expo-router';
 
+import { useAdminTiempoRealGlobal } from '@/src/features/admin/hooks/useAdmin';
 import { useAuthStore } from '@/src/features/auth/store/authStore';
 import { useComunidadTiempoRealGlobal } from '@/src/features/communities/hooks/useComunidades';
 import { useAlertasTiempoRealGlobal } from '@/src/features/panic/hooks/usePanicAlertas';
@@ -14,6 +15,9 @@ export default function AppLayout() {
   // Ídem para el ciclo de vida de la comunidad (suspendida/eliminada por
   // el admin): la app reacciona al instante, sin reiniciar.
   useComunidadTiempoRealGlobal();
+  // Ídem para el panel del admin (métricas, actividad y usuarios): se
+  // suscribe solo si el usuario es administrador.
+  useAdminTiempoRealGlobal();
 
   if (!token) {
     return <Redirect href="/(auth)/login" />;
