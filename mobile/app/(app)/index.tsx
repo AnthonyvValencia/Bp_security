@@ -51,8 +51,20 @@ export default function DashboardScreen() {
   // lider_id pero no cambia el rol del usuario.
   const esLider = comunidad?.lider?.id === usuario?.id;
   const esAdmin = usuario?.rol === 'administrador';
+  // El estado llega en tiempo real (evento comunidad.actualizada): al
+  // suspender desde el panel admin, estos bloqueos aplican al instante.
+  const comunidadSuspendida = comunidad?.estado === 'suspendida';
+
+  const avisarSuspendida = () =>
+    Alert.alert('Comunidad suspendida', 'La comunidad se encuentra suspendida.');
 
   const manejarActivacion = async () => {
+    if (comunidadSuspendida) {
+      avisarSuspendida();
+
+      return;
+    }
+
     const ubicacion = await obtenerUbicacionActual();
 
     await activar(ubicacion);
@@ -84,7 +96,23 @@ export default function DashboardScreen() {
       return;
     }
 
+    if (comunidadSuspendida) {
+      avisarSuspendida();
+
+      return;
+    }
+
     router.push('/(app)/chat');
+  };
+
+  const abrirReportar = () => {
+    if (comunidadSuspendida) {
+      avisarSuspendida();
+
+      return;
+    }
+
+    router.push('/(app)/reports/create');
   };
 
   return (
@@ -111,7 +139,15 @@ export default function DashboardScreen() {
           </Text>
         </View>
 
-        {comunidad ? (
+        {comunidad && comunidadSuspendida ? (
+          <View style={[styles.bannerRed, styles.bannerSuspendida]}>
+            <View style={styles.bannerRedFila}>
+              <View style={[styles.puntoVerde, styles.puntoRojo]} />
+              <Text style={styles.bannerRedTexto}>La comunidad se encuentra suspendida</Text>
+            </View>
+            <Text style={styles.bannerSuspendidaTexto}>● SUSPENDIDA</Text>
+          </View>
+        ) : comunidad ? (
           <View style={styles.bannerRed}>
             <View style={styles.bannerRedFila}>
               <View style={styles.puntoVerde} />
@@ -141,11 +177,7 @@ export default function DashboardScreen() {
           <AccionRapida icono="call" titulo="Llamar ECU 911" onPress={llamarEcu911} />
           <AccionRapida icono="location" titulo="Compartir GPS" onPress={() => void compartirGPS()} />
           <AccionRapida icono="chatbubbles" titulo="Chat vecinal" onPress={abrirChat} />
-          <AccionRapida
-            icono="warning"
-            titulo="Reportar Novedad"
-            onPress={() => router.push('/(app)/reports/create')}
-          />
+          <AccionRapida icono="warning" titulo="Reportar Novedad" onPress={abrirReportar} />
         </View>
 
         {comunidad ? (
@@ -196,8 +228,8 @@ export default function DashboardScreen() {
             {esAdmin ? (
               <AccionRapida
                 icono="checkmark-done-outline"
-                titulo="Aprobación de comunidades"
-                onPress={() => router.push('/(app)/admin/communities-approval')}
+                titulo="Gestión de comunidades"
+                onPress={() => router.push('/(app)/admin/communities-management')}
               />
             ) : null}
           </View>
@@ -282,6 +314,17 @@ const styles = StyleSheet.create({
   },
   bannerOnline: {
     color: colors.exito,
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  bannerSuspendida: {
+    borderColor: colors.peligro,
+  },
+  puntoRojo: {
+    backgroundColor: colors.peligro,
+  },
+  bannerSuspendidaTexto: {
+    color: colors.peligro,
     fontSize: 11,
     fontWeight: '700',
   },

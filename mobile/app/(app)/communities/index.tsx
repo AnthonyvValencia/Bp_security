@@ -73,8 +73,8 @@ export default function ComunidadesScreen() {
       )}
 
       {usuario?.rol === 'administrador' ? (
-        <Link href="/(app)/admin/communities-approval" style={styles.enlaceAdmin}>
-          Aprobar comunidades pendientes (admin)
+        <Link href="/(app)/admin/communities-management" style={styles.enlaceAdmin}>
+          Gestión de comunidades (admin)
         </Link>
       ) : null}
     </PantallaSegura>

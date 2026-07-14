@@ -11,8 +11,6 @@ import {
   View,
 } from 'react-native';
 
-import { useAuthStore } from '@/src/features/auth/store/authStore';
-import { useMiComunidad } from '@/src/features/communities/hooks/useComunidades';
 import { useEliminarAlerta, useHistorialPropio } from '@/src/features/panic/hooks/usePanicAlertas';
 import type { AlertaPanico } from '@/src/features/panic/types';
 import {
@@ -38,15 +36,11 @@ function fechaDelItem(item: ItemHistorial): string {
 }
 
 export default function ReportesScreen() {
-  const usuario = useAuthStore((state) => state.usuario);
-  const { data: miComunidad } = useMiComunidad();
   const { data: reportes, isLoading: cargandoReportes } = useReportesPropios();
   const { data: alertas, isLoading: cargandoAlertas } = useHistorialPropio();
   const { mutate: eliminarReporte } = useEliminarReporte();
   const { mutate: eliminarAlerta } = useEliminarAlerta();
 
-  // Liderazgo por lider_id (igual que las Policies del backend), no por rol.
-  const esLider = miComunidad?.lider?.id === usuario?.id;
   const cargando = cargandoReportes || cargandoAlertas;
 
   const confirmarEliminarReporte = (reporteId: number) => {
@@ -84,13 +78,6 @@ export default function ReportesScreen() {
           + Reportar
         </Link>
       </View>
-
-      {esLider ? (
-        <Link href="/(app)/reports/comunidad" style={styles.enlaceComunidad}>
-          <Ionicons name="people-outline" size={16} color={colors.acento} />
-          <Text style={styles.enlaceComunidadTexto}>Ver reportes de mi comunidad</Text>
-        </Link>
-      ) : null}
 
       {cargando ? (
         <ActivityIndicator size="large" color={colors.acento} style={styles.cargando} />
@@ -197,22 +184,6 @@ const styles = StyleSheet.create({
     color: colors.acento,
     fontSize: 14,
     fontWeight: '700',
-  },
-  enlaceComunidad: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: colors.superficie,
-    borderWidth: 1,
-    borderColor: colors.borde,
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 16,
-  },
-  enlaceComunidadTexto: {
-    color: colors.texto,
-    fontSize: 14,
-    fontWeight: '600',
   },
   cargando: {
     marginTop: 24,

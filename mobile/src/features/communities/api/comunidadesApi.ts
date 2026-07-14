@@ -40,6 +40,10 @@ export const comunidadesApi = {
     return data.solicitud;
   },
 
+  salir: async (): Promise<void> => {
+    await httpClient.post('/mi-comunidad/salir');
+  },
+
   solicitarIngreso: async (comunidadId: number): Promise<SolicitudMembresia> => {
     const { data } = await httpClient.post<{ solicitud: SolicitudMembresia }>(
       `/comunidades/${comunidadId}/solicitudes`,
@@ -98,6 +102,41 @@ export const comunidadesApi = {
 
   rechazarComunidad: async (solicitudId: number, motivo?: string): Promise<void> => {
     await httpClient.post(`/admin/comunidades/solicitudes/${solicitudId}/rechazar`, { motivo });
+  },
+
+  gestionables: async (): Promise<Comunidad[]> => {
+    const { data } = await httpClient.get<{ comunidades: Comunidad[] }>('/admin/comunidades');
+
+    return data.comunidades;
+  },
+
+  suspenderComunidad: async (comunidadId: number): Promise<Comunidad> => {
+    const { data } = await httpClient.post<{ comunidad: Comunidad }>(
+      `/admin/comunidades/${comunidadId}/suspender`,
+    );
+
+    return data.comunidad;
+  },
+
+  reactivarComunidad: async (comunidadId: number): Promise<Comunidad> => {
+    const { data } = await httpClient.post<{ comunidad: Comunidad }>(
+      `/admin/comunidades/${comunidadId}/reactivar`,
+    );
+
+    return data.comunidad;
+  },
+
+  eliminarComunidad: async (comunidadId: number): Promise<void> => {
+    await httpClient.delete(`/admin/comunidades/${comunidadId}`);
+  },
+
+  cambiarLider: async (comunidadId: number, nuevoLiderId: number): Promise<Comunidad> => {
+    const { data } = await httpClient.post<{ comunidad: Comunidad }>(
+      `/admin/comunidades/${comunidadId}/cambiar-lider`,
+      { nuevo_lider_id: nuevoLiderId },
+    );
+
+    return data.comunidad;
   },
 
   muro: async (comunidadId: number): Promise<MuroItem[]> => {

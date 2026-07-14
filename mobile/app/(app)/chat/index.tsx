@@ -18,6 +18,7 @@ import { useAuthStore } from '@/src/features/auth/store/authStore';
 import { BurbujaMensaje } from '@/src/features/chat/components/BurbujaMensaje';
 import { useEliminarMensaje, useEnviarMensaje, useMensajesChat } from '@/src/features/chat/hooks/useChat';
 import { useMiComunidad } from '@/src/features/communities/hooks/useComunidades';
+import { obtenerMensajeError } from '@/src/shared/api/obtenerMensajeError';
 import { PantallaSegura } from '@/src/shared/components/PantallaSegura';
 import { colors } from '@/src/shared/theme/colors';
 
@@ -49,7 +50,22 @@ export default function ChatScreen() {
       return;
     }
 
-    enviar(contenido);
+    // El estado llega en tiempo real: si el admin suspendió la comunidad,
+    // se bloquea al instante sin esperar el rechazo del servidor.
+    if (comunidad?.estado === 'suspendida') {
+      Alert.alert('Comunidad suspendida', 'La comunidad se encuentra suspendida.');
+
+      return;
+    }
+
+    enviar(contenido, {
+      onError: (error) => {
+        Alert.alert(
+          'No se pudo enviar',
+          obtenerMensajeError(error, 'Intenta de nuevo en unos segundos.'),
+        );
+      },
+    });
     setTexto('');
   };
 

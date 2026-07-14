@@ -1,4 +1,4 @@
-export type EstadoComunidad = 'pendiente' | 'aprobada' | 'rechazada';
+export type EstadoComunidad = 'pendiente' | 'aprobada' | 'rechazada' | 'suspendida';
 export type TipoSolicitud = 'unirse' | 'crear';
 export type EstadoSolicitud = 'pendiente' | 'aprobada' | 'rechazada';
 export type EstadoMiembro = 'activo' | 'expulsado' | 'retirado';
@@ -26,7 +26,12 @@ export interface UsuarioResumen {
   nombres: string;
   apellidos: string;
   email: string;
-  telefono?: string;
+  telefono?: string | null;
+  barrio?: string | null;
+  direccion?: string | null;
+  numero_casa?: string | null;
+  referencias_domicilio?: string | null;
+  foto?: string | null;
 }
 
 export interface SolicitudMembresia {
