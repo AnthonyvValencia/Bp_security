@@ -23,17 +23,17 @@ export interface AlertaEnCola extends AlertaLocal {
   sinRed?: boolean;
 }
 
-export interface AlertaEnCurso {
+interface Ubicacion {
+  latitud: number | null;
+  longitud: number | null;
+}
+
+export interface AlertaEnCurso extends Ubicacion {
   idCliente: string;
   /** null hasta que la cola offline logre sincronizarla con el servidor. */
   alertaId: number | null;
   /** null mientras siga solo local (todavía no confirmada por el servidor). */
   estado: EstadoAlerta | null;
-}
-
-interface Ubicacion {
-  latitud: number | null;
-  longitud: number | null;
 }
 
 interface PanicState {
@@ -83,7 +83,15 @@ export const usePanicStore = create<PanicState>((set, get) => ({
 
     set((estado) => ({
       cola: [...estado.cola, { ...alertaLocal, estadoSync: 'pendiente' }],
-      alertaEnCurso: { idCliente: alertaLocal.id_cliente, alertaId: null, estado: null },
+      // La ubicación viaja en la alerta en curso porque el panel la usa para
+      // el enlace del mapa que se manda a los contactos de emergencia.
+      alertaEnCurso: {
+        idCliente: alertaLocal.id_cliente,
+        alertaId: null,
+        estado: null,
+        latitud,
+        longitud,
+      },
     }));
 
     // Si ya hay una pasada en curso, marca que hay nuevas alertas esperando.
@@ -130,7 +138,11 @@ export const usePanicStore = create<PanicState>((set, get) => ({
             cola: estado.cola.filter((item) => item.id_cliente !== alerta.id_cliente),
             alertaEnCurso:
               estado.alertaEnCurso?.idCliente === alerta.id_cliente
-                ? { idCliente: alerta.id_cliente, alertaId: respuesta.id, estado: respuesta.estado }
+                ? {
+                    ...estado.alertaEnCurso,
+                    alertaId: respuesta.id,
+                    estado: respuesta.estado,
+                  }
                 : estado.alertaEnCurso,
           }));
         } catch (error) {

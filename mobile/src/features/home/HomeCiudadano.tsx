@@ -158,13 +158,14 @@ export function HomeCiudadano() {
           </View>
         ) : (
           <Link href="/(app)/communities" style={styles.bannerSinComunidad}>
-            Aún no perteneces a una comunidad. Toca aquí para buscar o crear una.
+            Aún no perteneces a una comunidad: el botón de pánico no alcanzará a ningún vecino.
+            Toca aquí para buscar o crear una.
           </Link>
         )}
 
         <View style={styles.centroPanico}>
           {alertaEnCurso ? (
-            <PanelAlertaEnviada alerta={alertaEnCurso} />
+            <PanelAlertaEnviada alerta={alertaEnCurso} tieneComunidad={Boolean(comunidad)} />
           ) : (
             <BotonPanico activando={false} onActivar={() => void manejarActivacion()} />
           )}
