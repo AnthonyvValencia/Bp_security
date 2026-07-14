@@ -12,6 +12,7 @@ import {
 
 import { useMiComunidad } from '@/src/features/communities/hooks/useComunidades';
 import {
+  claveAlertasComunidad,
   useAlertasComunidad,
   useFalsaAlarma,
   useReconocerAlerta,
@@ -48,10 +49,11 @@ export default function AlertasComunidadScreen() {
   const { data: comunidad, isLoading: cargandoComunidad } = useMiComunidad();
   const comunidadId = comunidad?.id ?? 0;
 
+  const claveAlertas = claveAlertasComunidad(comunidadId);
   const { data: alertas, isLoading: cargandoAlertas } = useAlertasComunidad(comunidadId);
-  const { mutate: reconocer, isPending: reconociendo } = useReconocerAlerta(comunidadId);
-  const { mutate: resolver, isPending: resolviendo } = useResolverAlerta(comunidadId);
-  const { mutate: marcarFalsaAlarma, isPending: marcandoFalsa } = useFalsaAlarma(comunidadId);
+  const { mutate: reconocer, isPending: reconociendo } = useReconocerAlerta(claveAlertas);
+  const { mutate: resolver, isPending: resolviendo } = useResolverAlerta(claveAlertas);
+  const { mutate: marcarFalsaAlarma, isPending: marcandoFalsa } = useFalsaAlarma(claveAlertas);
 
   const { data: reportes, isLoading: cargandoReportes } = useReportesComunidad(comunidadId);
   const { mutate: cambiarEstado, isPending: cambiandoEstado } = useCambiarEstadoReporte(comunidadId);

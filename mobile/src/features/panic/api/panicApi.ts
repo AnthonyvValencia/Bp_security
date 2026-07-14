@@ -23,6 +23,18 @@ export const panicApi = {
     return data.alertas;
   },
 
+  /**
+   * Cola del admin: alertas de ciudadanos que no pertenecen a ninguna
+   * comunidad, así que no hay líder que las atienda.
+   */
+  sinComunidad: async (): Promise<AlertaPanico[]> => {
+    const { data } = await httpClient.get<{ alertas: AlertaPanico[] }>(
+      '/admin/alertas-panico/sin-comunidad',
+    );
+
+    return data.alertas;
+  },
+
   cancelar: async (alertaId: number): Promise<AlertaPanico> => {
     const { data } = await httpClient.patch<{ alerta: AlertaPanico }>(
       `/alertas-panico/${alertaId}/cancelar`,

@@ -3,14 +3,16 @@ import { useEffect } from 'react';
 
 import { panicApi } from '@/src/features/panic/api/panicApi';
 import {
+  CLAVE_ALERTAS_SIN_COMUNIDAD,
   CLAVE_HISTORIAL_PROPIO,
+  claveAlertasComunidad,
   upsertAlertaEnCache,
 } from '@/src/features/panic/services/alertasCache';
 import type { AlertaPanico } from '@/src/features/panic/types';
 import { useAuthStore } from '@/src/features/auth/store/authStore';
 import { obtenerEcho } from '@/src/shared/services/realtime';
 
-export { CLAVE_HISTORIAL_PROPIO };
+export { CLAVE_ALERTAS_SIN_COMUNIDAD, CLAVE_HISTORIAL_PROPIO, claveAlertasComunidad };
 
 /**
  * Suscribe una lista de alertas (identificada por claveConsulta) a un canal
@@ -64,7 +66,7 @@ export function useHistorialPropio() {
 }
 
 export function useAlertasComunidad(comunidadId: number) {
-  const claveConsulta = ['alertas-panico', 'comunidad', comunidadId] as const;
+  const claveConsulta = claveAlertasComunidad(comunidadId);
   const esValido = Number.isFinite(comunidadId) && comunidadId > 0;
 
   useSuscripcionAlertas(esValido ? `comunidad.${comunidadId}.alertas-panico` : null, claveConsulta);
@@ -76,6 +78,22 @@ export function useAlertasComunidad(comunidadId: number) {
     staleTime: 0,
     // Respaldo por si el WebSocket de Reverb se desconecta; la entrega
     // principal de alertas nuevas/actualizadas es en tiempo real (ver arriba).
+    refetchInterval: 30000,
+  });
+}
+
+/**
+ * Cola del admin. Un ciudadano sin comunidad no tiene líder que lo atienda:
+ * su alerta solo llega aquí, así que esta pantalla es el único lugar del
+ * sistema donde ese pánico es visible.
+ */
+export function useAlertasSinComunidad() {
+  useSuscripcionAlertas('admin.alertas-panico', CLAVE_ALERTAS_SIN_COMUNIDAD);
+
+  return useQuery({
+    queryKey: CLAVE_ALERTAS_SIN_COMUNIDAD,
+    queryFn: panicApi.sinComunidad,
+    staleTime: 0,
     refetchInterval: 30000,
   });
 }
@@ -107,34 +125,36 @@ export function useEliminarAlerta() {
   });
 }
 
-export function useReconocerAlerta(comunidadId: number) {
+/**
+ * Las tres acciones de cierre reciben la clave de la lista que deben refrescar:
+ * las usan tanto el líder sobre la cola de su comunidad como el admin sobre la
+ * cola de alertas sin comunidad.
+ */
+export function useReconocerAlerta(claveConsulta: readonly unknown[]) {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: (alertaId: number) => panicApi.reconocer(alertaId),
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: ['alertas-panico', 'comunidad', comunidadId] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: claveConsulta }),
   });
 }
 
-export function useResolverAlerta(comunidadId: number) {
+export function useResolverAlerta(claveConsulta: readonly unknown[]) {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: ({ alertaId, notas }: { alertaId: number; notas?: string }) =>
       panicApi.resolver(alertaId, notas),
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: ['alertas-panico', 'comunidad', comunidadId] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: claveConsulta }),
   });
 }
 
-export function useFalsaAlarma(comunidadId: number) {
+export function useFalsaAlarma(claveConsulta: readonly unknown[]) {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: ({ alertaId, notas }: { alertaId: number; notas?: string }) =>
       panicApi.falsaAlarma(alertaId, notas),
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: ['alertas-panico', 'comunidad', comunidadId] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: claveConsulta }),
   });
 }

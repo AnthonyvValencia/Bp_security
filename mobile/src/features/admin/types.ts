@@ -41,6 +41,7 @@ export interface ResumenAdmin {
   };
   actividad: {
     alertas: number;
+    alertas_sin_comunidad_abiertas: number;
     reportes: number;
   };
   auditoria_reciente: AuditoriaEntrada[];

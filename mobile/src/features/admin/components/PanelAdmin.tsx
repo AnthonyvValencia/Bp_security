@@ -82,6 +82,12 @@ export function PanelAdmin() {
             <Text style={styles.seccionTitulo}>ACTIVIDAD</Text>
             <View style={styles.grid}>
               <Kpi icono="alert-circle" valor={resumen.actividad.alertas} etiqueta="Alertas de pánico" />
+              <Kpi
+                icono="person-circle"
+                valor={resumen.actividad.alertas_sin_comunidad_abiertas}
+                etiqueta="Sin comunidad (abiertas)"
+                alerta={resumen.actividad.alertas_sin_comunidad_abiertas > 0}
+              />
               <Kpi icono="document-text" valor={resumen.actividad.reportes} etiqueta="Reportes" />
             </View>
 
@@ -96,6 +102,11 @@ export function PanelAdmin() {
                 icono="checkmark-done-outline"
                 titulo="Gestión de comunidades"
                 onPress={() => router.push('/(app)/admin/communities-management')}
+              />
+              <AccionRapida
+                icono="alert-circle-outline"
+                titulo="Alertas sin comunidad"
+                onPress={() => router.push('/(app)/admin/alerts')}
               />
             </View>
 
