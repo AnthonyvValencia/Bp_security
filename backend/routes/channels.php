@@ -20,6 +20,12 @@ Broadcast::channel('admin.panel', function (User $usuario) {
     return $usuario->rol === RolUsuario::Administrador;
 });
 
+// Alertas de pánico de ciudadanos sin comunidad: no hay líder que las atienda,
+// las gestiona el admin. Lleva ubicación en vivo, así que nadie más entra.
+Broadcast::channel('admin.alertas-panico', function (User $usuario) {
+    return $usuario->rol === RolUsuario::Administrador;
+});
+
 // Catálogo público de comunidades: cualquier usuario autenticado lo ve, así
 // que cualquiera puede suscribirse para refrescar la lista al instante.
 Broadcast::channel('comunidades', fn (User $usuario) => true);

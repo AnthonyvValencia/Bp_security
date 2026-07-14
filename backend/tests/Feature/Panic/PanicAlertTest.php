@@ -166,6 +166,36 @@ it('el admin ve las alertas sin comunidad asignada', function () {
         ->assertJsonCount(1, 'alertas');
 });
 
+it('el admin reconoce y resuelve una alerta sin comunidad', function () {
+    $admin = User::factory()->create(['rol' => RolUsuario::Administrador]);
+    $ciudadanoSinComunidad = User::factory()->create();
+
+    $alertaId = $this->actingAs($ciudadanoSinComunidad)
+        ->postJson('/api/alertas-panico', activarPayload())
+        ->assertCreated()
+        ->json('alerta.id');
+
+    $this->actingAs($admin)->patchJson("/api/alertas-panico/{$alertaId}/reconocer")->assertOk();
+    expect(AlertaPanico::find($alertaId)->estado)->toBe(EstadoAlerta::Reconocida);
+
+    $this->actingAs($admin)->patchJson("/api/alertas-panico/{$alertaId}/resolver")->assertOk();
+    expect(AlertaPanico::find($alertaId)->estado)->toBe(EstadoAlerta::Resuelta);
+});
+
+it('un ciudadano cualquiera no puede gestionar una alerta sin comunidad ajena', function () {
+    $emisor = User::factory()->create();
+    $entrometido = User::factory()->create();
+
+    $alertaId = $this->actingAs($emisor)
+        ->postJson('/api/alertas-panico', activarPayload())
+        ->assertCreated()
+        ->json('alerta.id');
+
+    $this->actingAs($entrometido)
+        ->patchJson("/api/alertas-panico/{$alertaId}/reconocer")
+        ->assertForbidden();
+});
+
 it('un ciudadano ve su propio historial de alertas', function () {
     $ciudadano = User::factory()->create();
 

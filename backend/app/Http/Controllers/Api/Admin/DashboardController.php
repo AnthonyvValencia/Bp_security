@@ -6,6 +6,7 @@ use App\Domain\Audit\Models\Auditoria;
 use App\Domain\Communities\Enums\EstadoComunidad;
 use App\Domain\Communities\Enums\EstadoSolicitud;
 use App\Domain\Communities\Enums\TipoSolicitud;
+use App\Domain\Panic\Enums\EstadoAlerta;
 use App\Domain\Users\Enums\EstadoUsuario;
 use App\Domain\Users\Enums\RolUsuario;
 use App\Http\Controllers\Controller;
@@ -44,6 +45,11 @@ class DashboardController extends Controller
                 ],
                 'actividad' => [
                     'alertas' => AlertaPanico::count(),
+                    // Las de un ciudadano sin comunidad: nadie más que el admin
+                    // puede atenderlas, así que van destacadas en el panel.
+                    'alertas_sin_comunidad_abiertas' => AlertaPanico::whereNull('comunidad_id')
+                        ->whereIn('estado', [EstadoAlerta::Enviada, EstadoAlerta::Reconocida])
+                        ->count(),
                     'reportes' => Reporte::count(),
                 ],
                 'auditoria_reciente' => AuditoriaResource::collection($auditoria),

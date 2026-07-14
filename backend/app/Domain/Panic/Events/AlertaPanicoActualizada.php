@@ -32,6 +32,10 @@ class AlertaPanicoActualizada implements ShouldBroadcastNow
      * del propio emisor (para que su historial personal se actualice al
      * instante, sin depender de polling ni de la sincronización offline).
      *
+     * Una alerta sin comunidad no tiene líder que la atienda, así que va al
+     * canal del admin: es su cola de responsabilidad exclusiva. Sin esto, el
+     * pánico de un ciudadano sin comunidad no llegaría a nadie.
+     *
      * @return array<int, Channel>
      */
     public function broadcastOn(): array
@@ -40,9 +44,9 @@ class AlertaPanicoActualizada implements ShouldBroadcastNow
             new PrivateChannel("App.Models.User.{$this->alerta->usuario_id}"),
         ];
 
-        if ($this->alerta->comunidad_id !== null) {
-            $canales[] = new PrivateChannel("comunidad.{$this->alerta->comunidad_id}.alertas-panico");
-        }
+        $canales[] = $this->alerta->comunidad_id !== null
+            ? new PrivateChannel("comunidad.{$this->alerta->comunidad_id}.alertas-panico")
+            : new PrivateChannel('admin.alertas-panico');
 
         return $canales;
     }
