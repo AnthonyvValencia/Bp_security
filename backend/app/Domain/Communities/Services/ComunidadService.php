@@ -9,9 +9,11 @@ use App\Domain\Communities\Enums\EstadoMiembro;
 use App\Domain\Communities\Enums\EstadoSolicitud;
 use App\Domain\Communities\Enums\TipoSolicitud;
 use App\Domain\Communities\Events\ComunidadActualizada;
+use App\Domain\Communities\Events\ComunidadCatalogoActualizado;
 use App\Domain\Communities\Events\MembresiaActualizada;
 use App\Domain\Communities\Events\SolicitudRecibida;
 use App\Domain\Communities\Exceptions\ReglaComunidadException;
+use App\Domain\Users\Enums\RolUsuario;
 use App\Models\Comunidad;
 use App\Models\ComunidadMiembro;
 use App\Models\SolicitudMembresia;
@@ -103,6 +105,8 @@ class ComunidadService
                 'revisado_en' => now(),
             ]);
 
+            $this->sincronizarRolLider($solicitud->usuario_id);
+
             $this->auditor->registrar('comunidad_aprobada', usuario: $admin, entidadTipo: Comunidad::class, entidadId: $comunidad->id);
 
             return $comunidad;
@@ -111,6 +115,9 @@ class ComunidadService
         // Tras el commit (no dentro): el solicitante —ahora líder— ve su
         // comunidad habilitada al instante, sin reabrir la app.
         MembresiaActualizada::dispatch($solicitud->usuario_id, 'comunidad_aprobada', $comunidad->id);
+
+        // La nueva comunidad ya aparece en el catálogo de "buscar comunidades".
+        ComunidadCatalogoActualizado::dispatch();
 
         return $comunidad;
     }
@@ -159,6 +166,8 @@ class ComunidadService
         $this->auditor->registrar('comunidad_suspendida', usuario: $admin, entidadTipo: Comunidad::class, entidadId: $comunidad->id);
 
         ComunidadActualizada::dispatch($comunidad->id, EstadoComunidad::Suspendida->value);
+        // Una comunidad suspendida deja de listarse en el catálogo.
+        ComunidadCatalogoActualizado::dispatch();
 
         return $comunidad->fresh(['lider'])->loadCount(['miembrosActivos', 'miembrosConectados']);
     }
@@ -174,20 +183,29 @@ class ComunidadService
         $this->auditor->registrar('comunidad_reactivada', usuario: $admin, entidadTipo: Comunidad::class, entidadId: $comunidad->id);
 
         ComunidadActualizada::dispatch($comunidad->id, EstadoComunidad::Aprobada->value);
+        // Al reactivarse, la comunidad vuelve a aparecer en el catálogo.
+        ComunidadCatalogoActualizado::dispatch();
 
         return $comunidad->fresh(['lider'])->loadCount(['miembrosActivos', 'miembrosConectados']);
     }
 
     public function eliminar(Comunidad $comunidad, User $admin): void
     {
-        $this->auditor->registrar('comunidad_eliminada', usuario: $admin, entidadTipo: Comunidad::class, entidadId: $comunidad->id);
+        DB::transaction(function () use ($comunidad, $admin) {
+            $this->auditor->registrar('comunidad_eliminada', usuario: $admin, entidadTipo: Comunidad::class, entidadId: $comunidad->id);
 
-        $comunidad->delete();
+            $comunidad->delete();
+
+            // Ya no queda comunidad al frente de la cual estar: vuelve a ciudadano.
+            $this->sincronizarRolLider($comunidad->lider_id);
+        });
 
         // Tras el soft delete: los clientes ya suscritos reciben el aviso y
         // sueltan la comunidad al instante (la autorización del canal ocurrió
         // al suscribirse, no se re-evalúa aquí).
         ComunidadActualizada::dispatch($comunidad->id, 'eliminada');
+        // Y desaparece del catálogo de "buscar comunidades" para todos.
+        ComunidadCatalogoActualizado::dispatch();
     }
 
     public function cambiarLider(Comunidad $comunidad, int $nuevoLiderId, User $admin): Comunidad
@@ -205,17 +223,49 @@ class ComunidadService
             throw new ReglaComunidadException('El nuevo líder debe ser un miembro activo de la comunidad.');
         }
 
-        // El líder saliente conserva su membresía activa: solo pierde el rol,
-        // pasa a ser un vecino más de la comunidad.
-        $comunidad->update(['lider_id' => $nuevoLiderId]);
+        $liderSaliente = $comunidad->lider_id;
 
-        $this->auditor->registrar('lider_cambiado', usuario: $admin, entidadTipo: Comunidad::class, entidadId: $comunidad->id);
+        DB::transaction(function () use ($comunidad, $nuevoLiderId, $liderSaliente, $admin) {
+            // El líder saliente conserva su membresía activa: solo pierde el rol,
+            // pasa a ser un vecino más de la comunidad.
+            $comunidad->update(['lider_id' => $nuevoLiderId]);
+
+            $this->sincronizarRolLider($liderSaliente);
+            $this->sincronizarRolLider($nuevoLiderId);
+
+            $this->auditor->registrar('lider_cambiado', usuario: $admin, entidadTipo: Comunidad::class, entidadId: $comunidad->id);
+        });
 
         // Ambos —saliente y entrante— están suscritos al canal de la comunidad
         // (es su comunidad activa), así que refrescan permisos al instante.
         ComunidadActualizada::dispatch($comunidad->id, 'miembros_actualizados');
 
         return $comunidad->fresh(['lider'])->loadCount(['miembrosActivos', 'miembrosConectados']);
+    }
+
+    /**
+     * `users.rol` es una proyección de `comunidades.lider_id`: se es líder por
+     * estar al frente de una comunidad viva, no por tener el rol asignado. La
+     * autorización sigue leyendo `lider_id` — esto solo mantiene el rol honesto
+     * para el panel del admin. Una comunidad suspendida no degrada a su líder
+     * (puede reactivarse); una eliminada sí, porque el soft delete la saca de
+     * la relación. A un administrador nunca se le toca el rol.
+     */
+    private function sincronizarRolLider(?int $usuarioId): void
+    {
+        $usuario = $usuarioId ? User::find($usuarioId) : null;
+
+        if (! $usuario || $usuario->rol === RolUsuario::Administrador) {
+            return;
+        }
+
+        $rol = Comunidad::where('lider_id', $usuario->id)->exists()
+            ? RolUsuario::Lider
+            : RolUsuario::Ciudadano;
+
+        if ($usuario->rol !== $rol) {
+            $usuario->update(['rol' => $rol]);
+        }
     }
 
     private function validarSolicitudDeCreacionPendiente(SolicitudMembresia $solicitud): void

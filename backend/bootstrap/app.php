@@ -4,6 +4,8 @@ use App\Domain\Chat\Exceptions\ReglaChatException;
 use App\Domain\Communities\Exceptions\ReglaComunidadException;
 use App\Domain\Panic\Exceptions\ReglaAlertaException;
 use App\Domain\Reports\Exceptions\ReglaReporteException;
+use App\Domain\Users\Exceptions\CuentaSuspendidaException;
+use App\Domain\Users\Exceptions\ReglaUsuarioException;
 use App\Http\Middleware\ActualizarUltimaActividad;
 use App\Http\Middleware\EnsureUserIsAdmin;
 use Illuminate\Foundation\Application;
@@ -45,5 +47,13 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $exceptions->render(function (ReglaChatException $e, Request $request) {
             return response()->json(['message' => $e->getMessage()], 422);
+        });
+
+        $exceptions->render(function (ReglaUsuarioException $e, Request $request) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        });
+
+        $exceptions->render(function (CuentaSuspendidaException $e, Request $request) {
+            return response()->json(['message' => $e->getMessage()], 403);
         });
     })->create();

@@ -4,6 +4,8 @@ namespace App\Domain\Auth\Services;
 
 use App\Domain\Audit\Services\Auditor;
 use App\Domain\Auth\DTOs\RegistrarUsuarioData;
+use App\Domain\Users\Enums\EstadoUsuario;
+use App\Domain\Users\Exceptions\CuentaSuspendidaException;
 use App\Models\User;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Http\Request;
@@ -50,6 +52,12 @@ class AuthService
             );
 
             return null;
+        }
+
+        if ($usuario->estado === EstadoUsuario::Suspendido) {
+            $this->auditor->registrar('inicio_sesion_bloqueado', usuario: $usuario, request: $request);
+
+            throw new CuentaSuspendidaException('Tu cuenta se encuentra suspendida. Contacta al administrador.');
         }
 
         $this->auditor->registrar('inicio_sesion', usuario: $usuario, request: $request);

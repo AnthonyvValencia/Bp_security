@@ -15,6 +15,15 @@ Broadcast::channel('admin.solicitudes', function (User $usuario) {
     return $usuario->rol === RolUsuario::Administrador;
 });
 
+// Panel del administrador (métricas y actividad): solo administradores.
+Broadcast::channel('admin.panel', function (User $usuario) {
+    return $usuario->rol === RolUsuario::Administrador;
+});
+
+// Catálogo público de comunidades: cualquier usuario autenticado lo ve, así
+// que cualquiera puede suscribirse para refrescar la lista al instante.
+Broadcast::channel('comunidades', fn (User $usuario) => true);
+
 // Canal de "ciclo de vida" de la comunidad (suspendida/reactivada/eliminada).
 Broadcast::channel('comunidad.{comunidad}', function (User $usuario, Comunidad $comunidad) {
     return Gate::forUser($usuario)->allows('verMiembros', $comunidad);

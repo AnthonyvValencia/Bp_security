@@ -1,6 +1,8 @@
 <?php
 
 use App\Http\Controllers\Api\Admin\CommunityApprovalController;
+use App\Http\Controllers\Api\Admin\DashboardController;
+use App\Http\Controllers\Api\Admin\UserManagementController;
 use App\Http\Controllers\Api\Auth\AuthController;
 use App\Http\Controllers\Api\Chat\ChatController;
 use App\Http\Controllers\Api\Communities\CommunityController;
@@ -74,5 +76,12 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::delete('comunidades/{comunidad}', [CommunityApprovalController::class, 'eliminar']);
         Route::post('comunidades/{comunidad}/cambiar-lider', [CommunityApprovalController::class, 'cambiarLider']);
         Route::get('alertas-panico/sin-comunidad', [PanicAlertController::class, 'sinComunidad']);
+
+        Route::get('dashboard', [DashboardController::class, 'resumen']);
+        Route::get('usuarios', [UserManagementController::class, 'index']);
+        Route::get('usuarios/{usuario}', [UserManagementController::class, 'show']);
+        Route::post('usuarios/{usuario}/suspender', [UserManagementController::class, 'suspender']);
+        Route::post('usuarios/{usuario}/reactivar', [UserManagementController::class, 'reactivar']);
+        Route::post('usuarios/{usuario}/rol', [UserManagementController::class, 'cambiarRol']);
     });
 });

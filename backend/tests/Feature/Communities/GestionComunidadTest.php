@@ -3,6 +3,7 @@
 use App\Domain\Communities\Enums\EstadoComunidad;
 use App\Domain\Communities\Enums\EstadoMiembro;
 use App\Domain\Communities\Events\ComunidadActualizada;
+use App\Domain\Communities\Events\ComunidadCatalogoActualizado;
 use App\Domain\Communities\Events\MembresiaActualizada;
 use App\Domain\Communities\Events\SolicitudRecibida;
 use App\Domain\Reports\Enums\CategoriaReporte;
@@ -207,6 +208,78 @@ it('cambiar el líder difunde el evento de comunidad actualizada', function () {
     );
 });
 
+it('aprobar la creación de una comunidad promueve al solicitante a líder', function () {
+    $admin = User::factory()->create(['rol' => RolUsuario::Administrador]);
+    $solicitante = User::factory()->create();
+    expect($solicitante->rol)->toBe(RolUsuario::Ciudadano);
+
+    $solicitud = SolicitudMembresia::create([
+        'usuario_id' => $solicitante->id,
+        'tipo' => 'crear',
+        'nombre_comunidad_propuesto' => 'Miraflores',
+        'barrio_comunidad_propuesto' => 'Barrio M',
+    ]);
+
+    $this->actingAs($admin)
+        ->postJson("/api/admin/comunidades/solicitudes/{$solicitud->id}/aprobar")
+        ->assertOk();
+
+    expect($solicitante->fresh()->rol)->toBe(RolUsuario::Lider);
+});
+
+it('cambiar el líder promueve al entrante y devuelve al saliente a ciudadano', function () {
+    $admin = User::factory()->create(['rol' => RolUsuario::Administrador]);
+    $liderActual = User::factory()->create(['rol' => RolUsuario::Lider]);
+    $comunidad = comunidadAprobada($liderActual);
+    $nuevoLider = User::factory()->create();
+
+    ComunidadMiembro::create(['comunidad_id' => $comunidad->id, 'usuario_id' => $liderActual->id, 'estado' => EstadoMiembro::Activo]);
+    ComunidadMiembro::create(['comunidad_id' => $comunidad->id, 'usuario_id' => $nuevoLider->id, 'estado' => EstadoMiembro::Activo]);
+
+    $this->actingAs($admin)
+        ->postJson("/api/admin/comunidades/{$comunidad->id}/cambiar-lider", ['nuevo_lider_id' => $nuevoLider->id])
+        ->assertOk();
+
+    expect($nuevoLider->fresh()->rol)->toBe(RolUsuario::Lider)
+        ->and($liderActual->fresh()->rol)->toBe(RolUsuario::Ciudadano);
+});
+
+it('eliminar la comunidad devuelve a su líder a ciudadano', function () {
+    $admin = User::factory()->create(['rol' => RolUsuario::Administrador]);
+    $lider = User::factory()->create(['rol' => RolUsuario::Lider]);
+    $comunidad = comunidadAprobada($lider);
+
+    $this->actingAs($admin)
+        ->deleteJson("/api/admin/comunidades/{$comunidad->id}")
+        ->assertOk();
+
+    expect($lider->fresh()->rol)->toBe(RolUsuario::Ciudadano);
+});
+
+it('suspender la comunidad no degrada a su líder: puede reactivarse', function () {
+    $admin = User::factory()->create(['rol' => RolUsuario::Administrador]);
+    $lider = User::factory()->create(['rol' => RolUsuario::Lider]);
+    $comunidad = comunidadAprobada($lider);
+
+    $this->actingAs($admin)
+        ->postJson("/api/admin/comunidades/{$comunidad->id}/suspender")
+        ->assertOk();
+
+    expect($lider->fresh()->rol)->toBe(RolUsuario::Lider);
+});
+
+it('un admin al frente de una comunidad no pierde su rol de administrador', function () {
+    $admin = User::factory()->create(['rol' => RolUsuario::Administrador]);
+    $otroAdmin = User::factory()->create(['rol' => RolUsuario::Administrador]);
+    $comunidad = comunidadAprobada($otroAdmin);
+
+    $this->actingAs($admin)
+        ->deleteJson("/api/admin/comunidades/{$comunidad->id}")
+        ->assertOk();
+
+    expect($otroAdmin->fresh()->rol)->toBe(RolUsuario::Administrador);
+});
+
 it('aprobar la creación de una comunidad notifica al solicitante por su canal personal', function () {
     Event::fake([MembresiaActualizada::class]);
 
@@ -298,6 +371,48 @@ it('solicitar ingreso notifica al líder por su canal personal al instante', fun
         fn ($evento) => $evento->solicitud->usuario_id === $vecino->id
             && $evento->broadcastOn()->name === "private-App.Models.User.{$lider->id}",
     );
+});
+
+it('eliminar y suspender difunden la actualización del catálogo de comunidades', function () {
+    Event::fake([ComunidadCatalogoActualizado::class]);
+
+    $admin = User::factory()->create(['rol' => RolUsuario::Administrador]);
+    $comunidad = comunidadAprobada();
+
+    $this->actingAs($admin)->postJson("/api/admin/comunidades/{$comunidad->id}/suspender")->assertOk();
+    $this->actingAs($admin)->postJson("/api/admin/comunidades/{$comunidad->id}/reactivar")->assertOk();
+    $this->actingAs($admin)->deleteJson("/api/admin/comunidades/{$comunidad->id}")->assertOk();
+
+    Event::assertDispatchedTimes(ComunidadCatalogoActualizado::class, 3);
+});
+
+it('el catálogo deja de listar una comunidad eliminada', function () {
+    $admin = User::factory()->create(['rol' => RolUsuario::Administrador]);
+    $comunidad = comunidadAprobada();
+    $comunidad->update(['nombre' => 'Catálogo Test']);
+
+    $ciudadano = User::factory()->create();
+    expect(collect($this->actingAs($ciudadano)->getJson('/api/comunidades')->json('comunidades'))->pluck('id'))
+        ->toContain($comunidad->id);
+
+    $this->actingAs($admin)->deleteJson("/api/admin/comunidades/{$comunidad->id}")->assertOk();
+
+    expect(collect($this->actingAs($ciudadano)->getJson('/api/comunidades')->json('comunidades'))->pluck('id'))
+        ->not->toContain($comunidad->id);
+});
+
+it('cualquier usuario autenticado puede suscribirse al canal del catálogo de comunidades', function () {
+    config(['broadcasting.default' => 'reverb']);
+    require base_path('routes/channels.php');
+
+    $ciudadano = User::factory()->create();
+
+    $this->actingAs($ciudadano)
+        ->postJson('/broadcasting/auth', [
+            'channel_name' => 'private-comunidades',
+            'socket_id' => '1234.5678',
+        ])
+        ->assertOk();
 });
 
 it('el canal admin.solicitudes solo autoriza a administradores', function () {
