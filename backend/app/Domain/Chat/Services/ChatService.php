@@ -24,6 +24,10 @@ class ChatService
             throw new ReglaChatException('Solo puedes escribir en el chat de tu comunidad activa.');
         }
 
+        if ($comunidad->estaSuspendida()) {
+            throw new ReglaChatException('La comunidad se encuentra suspendida.');
+        }
+
         $mensaje = MensajeChat::create([
             'comunidad_id' => $comunidad->id,
             'usuario_id' => $usuario->id,

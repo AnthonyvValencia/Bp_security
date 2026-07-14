@@ -33,6 +33,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('comunidades', [CommunityController::class, 'index']);
     Route::post('comunidades', [CommunityController::class, 'solicitarCreacion']);
     Route::get('mi-comunidad', [CommunityController::class, 'miComunidad']);
+    Route::post('mi-comunidad/salir', [MembershipController::class, 'salir']);
     Route::get('comunidades/{comunidad}', [CommunityController::class, 'show']);
 
     Route::post('comunidades/{comunidad}/solicitudes', [MembershipController::class, 'solicitarIngreso']);
@@ -67,6 +68,11 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('comunidades/pendientes', [CommunityApprovalController::class, 'pendientes']);
         Route::post('comunidades/solicitudes/{solicitud}/aprobar', [CommunityApprovalController::class, 'aprobar']);
         Route::post('comunidades/solicitudes/{solicitud}/rechazar', [CommunityApprovalController::class, 'rechazar']);
+        Route::get('comunidades', [CommunityApprovalController::class, 'gestionables']);
+        Route::post('comunidades/{comunidad}/suspender', [CommunityApprovalController::class, 'suspender']);
+        Route::post('comunidades/{comunidad}/reactivar', [CommunityApprovalController::class, 'reactivar']);
+        Route::delete('comunidades/{comunidad}', [CommunityApprovalController::class, 'eliminar']);
+        Route::post('comunidades/{comunidad}/cambiar-lider', [CommunityApprovalController::class, 'cambiarLider']);
         Route::get('alertas-panico/sin-comunidad', [PanicAlertController::class, 'sinComunidad']);
     });
 });

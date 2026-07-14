@@ -8,6 +8,9 @@ use App\Domain\Communities\Enums\EstadoComunidad;
 use App\Domain\Communities\Enums\EstadoMiembro;
 use App\Domain\Communities\Enums\EstadoSolicitud;
 use App\Domain\Communities\Enums\TipoSolicitud;
+use App\Domain\Communities\Events\ComunidadActualizada;
+use App\Domain\Communities\Events\MembresiaActualizada;
+use App\Domain\Communities\Events\SolicitudRecibida;
 use App\Domain\Communities\Exceptions\ReglaComunidadException;
 use App\Models\Comunidad;
 use App\Models\ComunidadMiembro;
@@ -53,6 +56,9 @@ class ComunidadService
 
         $this->auditor->registrar('comunidad_solicitada', usuario: $usuario, entidadTipo: SolicitudMembresia::class, entidadId: $solicitud->id);
 
+        // El panel de gestión del admin ve la solicitud aparecer al instante.
+        SolicitudRecibida::dispatch($solicitud);
+
         return $solicitud;
     }
 
@@ -73,7 +79,7 @@ class ComunidadService
     {
         $this->validarSolicitudDeCreacionPendiente($solicitud);
 
-        return DB::transaction(function () use ($solicitud, $admin) {
+        $comunidad = DB::transaction(function () use ($solicitud, $admin) {
             $comunidad = Comunidad::create([
                 'nombre' => $solicitud->nombre_comunidad_propuesto,
                 'descripcion' => $solicitud->descripcion_comunidad_propuesta,
@@ -101,6 +107,12 @@ class ComunidadService
 
             return $comunidad;
         });
+
+        // Tras el commit (no dentro): el solicitante —ahora líder— ve su
+        // comunidad habilitada al instante, sin reabrir la app.
+        MembresiaActualizada::dispatch($solicitud->usuario_id, 'comunidad_aprobada', $comunidad->id);
+
+        return $comunidad;
     }
 
     public function rechazarCreacion(SolicitudMembresia $solicitud, User $admin, ?string $motivo): void
@@ -115,6 +127,95 @@ class ComunidadService
         ]);
 
         $this->auditor->registrar('comunidad_rechazada', usuario: $admin, entidadTipo: SolicitudMembresia::class, entidadId: $solicitud->id);
+
+        MembresiaActualizada::dispatch($solicitud->usuario_id, 'comunidad_rechazada');
+    }
+
+    /**
+     * Comunidades que el admin puede gestionar: las que ya operan (aprobadas)
+     * o están congeladas (suspendidas). Excluye pendientes/rechazadas —
+     * esas viven en el flujo de aprobación— y las eliminadas (soft delete).
+     *
+     * @return Collection<int, Comunidad>
+     */
+    public function listarGestionables(): Collection
+    {
+        return Comunidad::query()
+            ->whereIn('estado', [EstadoComunidad::Aprobada, EstadoComunidad::Suspendida])
+            ->with('lider')
+            ->withCount(['miembrosActivos', 'miembrosConectados'])
+            ->orderBy('nombre')
+            ->get();
+    }
+
+    public function suspender(Comunidad $comunidad, User $admin): Comunidad
+    {
+        if ($comunidad->estado !== EstadoComunidad::Aprobada) {
+            throw new ReglaComunidadException('Solo se puede suspender una comunidad activa.');
+        }
+
+        $comunidad->update(['estado' => EstadoComunidad::Suspendida]);
+
+        $this->auditor->registrar('comunidad_suspendida', usuario: $admin, entidadTipo: Comunidad::class, entidadId: $comunidad->id);
+
+        ComunidadActualizada::dispatch($comunidad->id, EstadoComunidad::Suspendida->value);
+
+        return $comunidad->fresh(['lider'])->loadCount(['miembrosActivos', 'miembrosConectados']);
+    }
+
+    public function reactivar(Comunidad $comunidad, User $admin): Comunidad
+    {
+        if ($comunidad->estado !== EstadoComunidad::Suspendida) {
+            throw new ReglaComunidadException('Solo se puede reactivar una comunidad suspendida.');
+        }
+
+        $comunidad->update(['estado' => EstadoComunidad::Aprobada]);
+
+        $this->auditor->registrar('comunidad_reactivada', usuario: $admin, entidadTipo: Comunidad::class, entidadId: $comunidad->id);
+
+        ComunidadActualizada::dispatch($comunidad->id, EstadoComunidad::Aprobada->value);
+
+        return $comunidad->fresh(['lider'])->loadCount(['miembrosActivos', 'miembrosConectados']);
+    }
+
+    public function eliminar(Comunidad $comunidad, User $admin): void
+    {
+        $this->auditor->registrar('comunidad_eliminada', usuario: $admin, entidadTipo: Comunidad::class, entidadId: $comunidad->id);
+
+        $comunidad->delete();
+
+        // Tras el soft delete: los clientes ya suscritos reciben el aviso y
+        // sueltan la comunidad al instante (la autorización del canal ocurrió
+        // al suscribirse, no se re-evalúa aquí).
+        ComunidadActualizada::dispatch($comunidad->id, 'eliminada');
+    }
+
+    public function cambiarLider(Comunidad $comunidad, int $nuevoLiderId, User $admin): Comunidad
+    {
+        if ($comunidad->lider_id === $nuevoLiderId) {
+            throw new ReglaComunidadException('El usuario ya es líder de esta comunidad.');
+        }
+
+        $esMiembroActivo = $comunidad->miembros()
+            ->where('usuario_id', $nuevoLiderId)
+            ->where('estado', EstadoMiembro::Activo)
+            ->exists();
+
+        if (! $esMiembroActivo) {
+            throw new ReglaComunidadException('El nuevo líder debe ser un miembro activo de la comunidad.');
+        }
+
+        // El líder saliente conserva su membresía activa: solo pierde el rol,
+        // pasa a ser un vecino más de la comunidad.
+        $comunidad->update(['lider_id' => $nuevoLiderId]);
+
+        $this->auditor->registrar('lider_cambiado', usuario: $admin, entidadTipo: Comunidad::class, entidadId: $comunidad->id);
+
+        // Ambos —saliente y entrante— están suscritos al canal de la comunidad
+        // (es su comunidad activa), así que refrescan permisos al instante.
+        ComunidadActualizada::dispatch($comunidad->id, 'miembros_actualizados');
+
+        return $comunidad->fresh(['lider'])->loadCount(['miembrosActivos', 'miembrosConectados']);
     }
 
     private function validarSolicitudDeCreacionPendiente(SolicitudMembresia $solicitud): void

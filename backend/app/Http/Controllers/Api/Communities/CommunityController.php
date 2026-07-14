@@ -27,7 +27,7 @@ class CommunityController extends Controller
 
     public function show(Comunidad $comunidad): JsonResponse
     {
-        $comunidad->load('lider')->loadCount(['miembros', 'miembrosConectados']);
+        $comunidad->load('lider')->loadCount(['miembrosActivos', 'miembrosConectados']);
 
         return response()->json(['comunidad' => new ComunidadResource($comunidad)]);
     }
@@ -47,7 +47,7 @@ class CommunityController extends Controller
     public function miComunidad(Request $request): JsonResponse
     {
         $membresia = $request->user()->membresiaActiva()->with('comunidad.lider')->first();
-        $membresia?->comunidad->loadCount(['miembros', 'miembrosConectados']);
+        $membresia?->comunidad->loadCount(['miembrosActivos', 'miembrosConectados']);
 
         return response()->json([
             'comunidad' => $membresia ? new ComunidadResource($membresia->comunidad) : null,

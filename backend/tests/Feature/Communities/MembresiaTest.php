@@ -3,6 +3,7 @@
 use App\Domain\Communities\Enums\EstadoComunidad;
 use App\Domain\Communities\Enums\EstadoMiembro;
 use App\Domain\Communities\Enums\EstadoSolicitud;
+use App\Domain\Users\Enums\RolUsuario;
 use App\Models\Comunidad;
 use App\Models\ComunidadMiembro;
 use App\Models\SolicitudMembresia;
@@ -116,6 +117,48 @@ it('el líder puede expulsar a un miembro de su comunidad', function () {
         ->assertOk();
 
     expect($miembro->fresh()->estado)->toBe(EstadoMiembro::Expulsado);
+});
+
+it('el administrador puede expulsar a un miembro de cualquier comunidad', function () {
+    $lider = User::factory()->create();
+    $comunidad = crearComunidadAprobada($lider);
+    $admin = User::factory()->create(['rol' => RolUsuario::Administrador]);
+    $miembroUsuario = User::factory()->create();
+
+    $miembro = ComunidadMiembro::create([
+        'comunidad_id' => $comunidad->id,
+        'usuario_id' => $miembroUsuario->id,
+        'estado' => EstadoMiembro::Activo,
+    ]);
+
+    $this->actingAs($admin)
+        ->deleteJson("/api/comunidades/{$comunidad->id}/miembros/{$miembro->id}")
+        ->assertOk();
+
+    expect($miembro->fresh()->estado)->toBe(EstadoMiembro::Expulsado);
+});
+
+it('un miembro normal no puede expulsar a otro miembro', function () {
+    $lider = User::factory()->create();
+    $comunidad = crearComunidadAprobada($lider);
+    $miembroUsuario = User::factory()->create();
+    $otroUsuario = User::factory()->create();
+
+    foreach ([$miembroUsuario, $otroUsuario] as $usuario) {
+        ComunidadMiembro::create([
+            'comunidad_id' => $comunidad->id,
+            'usuario_id' => $usuario->id,
+            'estado' => EstadoMiembro::Activo,
+        ]);
+    }
+
+    $otroMiembro = ComunidadMiembro::where('usuario_id', $otroUsuario->id)->first();
+
+    $this->actingAs($miembroUsuario)
+        ->deleteJson("/api/comunidades/{$comunidad->id}/miembros/{$otroMiembro->id}")
+        ->assertForbidden();
+
+    expect($otroMiembro->fresh()->estado)->toBe(EstadoMiembro::Activo);
 });
 
 it('un miembro activo puede ver la lista de miembros, un extraño no', function () {

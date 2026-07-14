@@ -26,6 +26,13 @@ class MembershipController extends Controller
         return response()->json(['solicitud' => new SolicitudMembresiaResource($solicitud)], 201);
     }
 
+    public function salir(Request $request): JsonResponse
+    {
+        $this->membresiaService->salir($request->user());
+
+        return response()->json(['mensaje' => 'Saliste de la comunidad.']);
+    }
+
     public function solicitudesPendientes(Comunidad $comunidad): JsonResponse
     {
         $this->authorize('gestionar', $comunidad);

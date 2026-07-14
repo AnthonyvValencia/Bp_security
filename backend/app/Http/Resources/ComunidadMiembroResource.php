@@ -26,6 +26,11 @@ class ComunidadMiembroResource extends JsonResource
                 'apellidos' => $this->usuario->apellidos,
                 'email' => $this->usuario->email,
                 'telefono' => $this->usuario->telefono,
+                'barrio' => $this->usuario->barrio,
+                'direccion' => $this->usuario->direccion,
+                'numero_casa' => $this->usuario->numero_casa,
+                'referencias_domicilio' => $this->usuario->referencias_domicilio,
+                'foto' => $this->usuario->foto,
             ]),
         ];
     }

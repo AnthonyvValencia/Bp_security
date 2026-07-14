@@ -27,6 +27,10 @@ class ReporteService
             throw new ReglaReporteException('Debes pertenecer a una comunidad activa para reportar un incidente.');
         }
 
+        if (Comunidad::find($comunidadId)?->estaSuspendida()) {
+            throw new ReglaReporteException('La comunidad se encuentra suspendida.');
+        }
+
         $reporte = Reporte::create([
             'usuario_id' => $usuario->id,
             'comunidad_id' => $comunidadId,

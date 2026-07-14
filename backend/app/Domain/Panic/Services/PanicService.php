@@ -32,6 +32,13 @@ class PanicService
 
         $comunidadId = $usuario->membresiaActiva()->value('comunidad_id');
 
+        // Decisión de producto: una comunidad suspendida congela también el
+        // botón de pánico (se advirtió el riesgo de bloquear una función de
+        // emergencia). Las alertas sin comunidad siguen operativas.
+        if ($comunidadId && Comunidad::find($comunidadId)?->estaSuspendida()) {
+            throw new ReglaAlertaException('La comunidad se encuentra suspendida.');
+        }
+
         $alerta = AlertaPanico::create([
             'usuario_id' => $usuario->id,
             'comunidad_id' => $comunidadId,

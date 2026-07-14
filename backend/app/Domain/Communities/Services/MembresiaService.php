@@ -7,6 +7,9 @@ use App\Domain\Communities\Enums\EstadoComunidad;
 use App\Domain\Communities\Enums\EstadoMiembro;
 use App\Domain\Communities\Enums\EstadoSolicitud;
 use App\Domain\Communities\Enums\TipoSolicitud;
+use App\Domain\Communities\Events\ComunidadActualizada;
+use App\Domain\Communities\Events\MembresiaActualizada;
+use App\Domain\Communities\Events\SolicitudRecibida;
 use App\Domain\Communities\Exceptions\ReglaComunidadException;
 use App\Models\Comunidad;
 use App\Models\ComunidadMiembro;
@@ -49,6 +52,9 @@ class MembresiaService
 
         $this->auditor->registrar('membresia_solicitada', usuario: $usuario, entidadTipo: SolicitudMembresia::class, entidadId: $solicitud->id);
 
+        // El líder ve la solicitud de ingreso aparecer al instante.
+        SolicitudRecibida::dispatch($solicitud);
+
         return $solicitud;
     }
 
@@ -84,6 +90,11 @@ class MembresiaService
 
         $this->auditor->registrar('miembro_aprobado', usuario: $lider, entidadTipo: ComunidadMiembro::class, entidadId: $miembro->id);
 
+        // El nuevo miembro ve su comunidad habilitada al instante, y quienes
+        // estén viendo la comunidad ven actualizarse el conteo de miembros.
+        MembresiaActualizada::dispatch($solicitud->usuario_id, 'ingreso_aprobado', $solicitud->comunidad_id);
+        ComunidadActualizada::dispatch($solicitud->comunidad_id, 'miembros_actualizados');
+
         return $miembro;
     }
 
@@ -99,6 +110,32 @@ class MembresiaService
         ]);
 
         $this->auditor->registrar('miembro_rechazado', usuario: $lider, entidadTipo: SolicitudMembresia::class, entidadId: $solicitud->id);
+
+        MembresiaActualizada::dispatch($solicitud->usuario_id, 'ingreso_rechazado', $solicitud->comunidad_id);
+    }
+
+    /**
+     * El ciudadano sale voluntariamente de su comunidad. El líder no puede
+     * salir de la comunidad que lidera: primero el admin debe reasignar el
+     * liderazgo o eliminar la comunidad.
+     */
+    public function salir(User $usuario): void
+    {
+        $membresia = $usuario->membresiaActiva()->first();
+
+        if (! $membresia) {
+            throw new ReglaComunidadException('No perteneces a ninguna comunidad activa.');
+        }
+
+        if ($usuario->comunidadLiderada?->id === $membresia->comunidad_id) {
+            throw new ReglaComunidadException('El líder no puede salir de su comunidad.');
+        }
+
+        $membresia->update(['estado' => EstadoMiembro::Retirado]);
+
+        $this->auditor->registrar('miembro_retirado', usuario: $usuario, entidadTipo: ComunidadMiembro::class, entidadId: $membresia->id);
+
+        ComunidadActualizada::dispatch($membresia->comunidad_id, 'miembros_actualizados');
     }
 
     public function expulsarMiembro(ComunidadMiembro $miembro, User $lider): void
@@ -110,6 +147,10 @@ class MembresiaService
         $miembro->update(['estado' => EstadoMiembro::Expulsado]);
 
         $this->auditor->registrar('miembro_expulsado', usuario: $lider, entidadTipo: ComunidadMiembro::class, entidadId: $miembro->id);
+
+        // El expulsado pierde el acceso a la comunidad al instante en su app.
+        MembresiaActualizada::dispatch($miembro->usuario_id, 'expulsado', $miembro->comunidad_id);
+        ComunidadActualizada::dispatch($miembro->comunidad_id, 'miembros_actualizados');
     }
 
     /**

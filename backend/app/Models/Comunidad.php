@@ -8,11 +8,23 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 #[Fillable(['nombre', 'descripcion', 'barrio', 'lider_id', 'estado', 'aprobado_por', 'aprobado_en'])]
 class Comunidad extends Model
 {
+    use SoftDeletes;
+
     protected $table = 'comunidades';
+
+    /**
+     * Una comunidad suspendida por el admin queda congelada socialmente
+     * (sin chat ni reportes nuevos), pero el botón de pánico sigue activo.
+     */
+    public function estaSuspendida(): bool
+    {
+        return $this->estado === EstadoComunidad::Suspendida;
+    }
 
     /**
      * @return array<string, string>
@@ -47,6 +59,17 @@ class Comunidad extends Model
     public function miembros(): HasMany
     {
         return $this->hasMany(ComunidadMiembro::class, 'comunidad_id');
+    }
+
+    /**
+     * Solo membresías activas — para conteos y listados de cara al usuario.
+     * `miembros()` sin filtro conserva el historial (retirados/expulsados).
+     *
+     * @return HasMany<ComunidadMiembro, $this>
+     */
+    public function miembrosActivos(): HasMany
+    {
+        return $this->miembros()->where('estado', EstadoMiembro::Activo);
     }
 
     /**

@@ -105,7 +105,11 @@ class User extends Authenticatable
     public function membresiaActiva(): HasOne
     {
         return $this->hasOne(ComunidadMiembro::class, 'usuario_id')
-            ->where('estado', EstadoMiembro::Activo);
+            ->where('estado', EstadoMiembro::Activo)
+            // Si la comunidad fue eliminada (soft delete), la membresía deja
+            // de contar: bloquea chat/reportes de inmediato y libera al
+            // usuario para unirse a otra comunidad.
+            ->whereHas('comunidad');
     }
 
     /**
