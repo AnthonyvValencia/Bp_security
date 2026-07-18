@@ -3,6 +3,7 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use App\Domain\Auth\Notifications\RestablecerContrasenaNotification;
 use App\Domain\Communities\Enums\EstadoMiembro;
 use App\Domain\Users\Enums\EstadoUsuario;
 use App\Domain\Users\Enums\RolUsuario;
@@ -120,5 +121,15 @@ class User extends Authenticatable
     public function comunidadLiderada(): HasOne
     {
         return $this->hasOne(Comunidad::class, 'lider_id');
+    }
+
+    /**
+     * Reemplaza la notificación por defecto de Laravel (que enlaza a la ruta
+     * web `password.reset`, inexistente en esta API) por el correo con código
+     * que espera la pantalla "Restablecer contraseña" de la app.
+     */
+    public function sendPasswordResetNotification($token): void
+    {
+        $this->notify(new RestablecerContrasenaNotification($token));
     }
 }
