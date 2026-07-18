@@ -1,6 +1,19 @@
+import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Link, router } from 'expo-router';
-import { useEffect } from 'react';
-import { Alert, Linking, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useRef } from 'react';
+import {
+  Alert,
+  Animated,
+  Easing,
+  Linking,
+  Pressable,
+  ScrollView,
+  Share,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 
 import { useCerrarSesion } from '@/src/features/auth/hooks/useCerrarSesion';
 import { useAuthStore } from '@/src/features/auth/store/authStore';
@@ -12,7 +25,9 @@ import { PanelAlertaEnviada } from '@/src/features/panic/components/PanelAlertaE
 import { useDeteccionSacudida } from '@/src/features/panic/hooks/useDeteccionSacudida';
 import { usePanicStore } from '@/src/features/panic/store/panicStore';
 import { AccionRapida } from '@/src/shared/components/AccionRapida';
+import { FondoCuadricula } from '@/src/shared/components/FondoCuadricula';
 import { PantallaSegura } from '@/src/shared/components/PantallaSegura';
+import { TituloSeccion } from '@/src/shared/components/TituloSeccion';
 import { obtenerUbicacionActual } from '@/src/shared/services/ubicacion';
 import { colors } from '@/src/shared/theme/colors';
 
@@ -28,6 +43,52 @@ function saludoSegunHora(): string {
   }
 
   return 'Buenas noches';
+}
+
+/** Fecha legible ("julio de 2026") en vez del volcado completo con hora. */
+function mesYAnio(fecha: string): string {
+  return new Date(fecha).toLocaleDateString('es-EC', { month: 'long', year: 'numeric' });
+}
+
+/**
+ * Punto "en vivo" con un halo que late hacia afuera. Señal barata pero muy
+ * reconocible de que la red está activa en tiempo real.
+ */
+function IndicadorPulso({ color }: { color: string }) {
+  const pulso = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const animacion = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulso, {
+          toValue: 1,
+          duration: 1600,
+          easing: Easing.out(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulso, { toValue: 0, duration: 0, useNativeDriver: true }),
+      ]),
+    );
+
+    animacion.start();
+
+    return () => animacion.stop();
+  }, [pulso]);
+
+  const escala = pulso.interpolate({ inputRange: [0, 1], outputRange: [1, 2.8] });
+  const opacidad = pulso.interpolate({ inputRange: [0, 1], outputRange: [0.55, 0] });
+
+  return (
+    <View style={styles.puntoContenedor}>
+      <Animated.View
+        style={[
+          styles.puntoHalo,
+          { backgroundColor: color, transform: [{ scale: escala }], opacity: opacidad },
+        ]}
+      />
+      <View style={[styles.punto, { backgroundColor: color }]} />
+    </View>
+  );
 }
 
 export function HomeCiudadano() {
@@ -125,50 +186,103 @@ export function HomeCiudadano() {
 
   return (
     <PantallaSegura>
-      <ScrollView contentContainerStyle={styles.contenedor}>
-        <View style={styles.encabezado}>
+      <FondoCuadricula />
+      {/* Resplandor ambiental cian, en continuidad con las pantallas de auth. */}
+      <LinearGradient
+        colors={[colors.acento + '14', 'transparent']}
+        start={{ x: 0.5, y: 0 }}
+        end={{ x: 0.5, y: 1 }}
+        style={styles.resplandorAmbiental}
+        pointerEvents="none"
+      />
+
+      <ScrollView contentContainerStyle={styles.contenedor} showsVerticalScrollIndicator={false}>
+        {/* Encabezado como tarjeta elevada con degradado de superficie, igual
+            que las tarjetas de login/registro, para dar peso y jerarquía. */}
+        <LinearGradient
+          colors={[colors.superficie, colors.superficieAlterna]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.encabezado}
+        >
           <View style={styles.avatar}>
             <Text style={styles.avatarTexto}>{usuario?.nombres.charAt(0).toUpperCase()}</Text>
           </View>
 
           <View style={styles.encabezadoTextos}>
-            <Text style={styles.saludo}>
-              {saludoSegunHora()}, {usuario?.nombres}
+            <Text style={styles.saludoEtiqueta}>{saludoSegunHora()}</Text>
+            <Text style={styles.saludo} numberOfLines={1}>
+              {usuario?.nombres} {usuario?.apellidos ?? ''}
             </Text>
-            {usuario?.miembro_desde ? (
-              <Text style={styles.miembroDesde}>
-                Miembro desde: {new Date(usuario.miembro_desde).toLocaleString()}
-              </Text>
-            ) : null}
+
+            <View style={styles.encabezadoMeta}>
+              <View style={[styles.pastillaRol, esLider && styles.pastillaRolLider]}>
+                <Ionicons
+                  name={esLider ? 'shield-checkmark' : 'person'}
+                  size={11}
+                  color={esLider ? colors.primario : colors.acento}
+                />
+                <Text style={[styles.pastillaRolTexto, esLider && styles.pastillaRolTextoLider]}>
+                  {esLider ? 'LÍDER' : 'CIUDADANO'}
+                </Text>
+              </View>
+              {usuario?.miembro_desde ? (
+                <Text style={styles.miembroDesde}>Desde {mesYAnio(usuario.miembro_desde)}</Text>
+              ) : null}
+            </View>
           </View>
 
-          <Text style={styles.cerrarSesion} onPress={() => cerrarSesion(undefined, { onSuccess: () => router.replace('/(auth)/login') })}>
-            CERRAR SESIÓN
-          </Text>
-        </View>
+          {/* Cerrar sesión como ícono discreto: el rojo queda reservado para la
+              emergencia (banner de suspensión y botón de pánico). */}
+          <Pressable
+            style={styles.botonSalir}
+            hitSlop={8}
+            onPress={() =>
+              cerrarSesion(undefined, { onSuccess: () => router.replace('/(auth)/login') })
+            }
+          >
+            <Ionicons name="log-out-outline" size={20} color={colors.textoSecundario} />
+          </Pressable>
+        </LinearGradient>
 
         {comunidad && comunidadSuspendida ? (
           <View style={[styles.bannerRed, styles.bannerSuspendida]}>
             <View style={styles.bannerRedFila}>
-              <View style={[styles.puntoVerde, styles.puntoRojo]} />
-              <Text style={styles.bannerRedTexto}>La comunidad se encuentra suspendida</Text>
+              <IndicadorPulso color={colors.peligro} />
+              <View style={styles.bannerTextos}>
+                <Text style={styles.bannerRedTexto}>Comunidad suspendida</Text>
+                <Text style={styles.bannerSubtexto}>El botón de pánico está en pausa</Text>
+              </View>
             </View>
-            <Text style={styles.bannerSuspendidaTexto}>● SUSPENDIDA</Text>
+            <View style={[styles.pastillaEstado, styles.pastillaEstadoRoja]}>
+              <Text style={styles.pastillaEstadoTextoRojo}>SUSPENDIDA</Text>
+            </View>
           </View>
         ) : comunidad ? (
           <View style={styles.bannerRed}>
             <View style={styles.bannerRedFila}>
-              <View style={styles.puntoVerde} />
-              <Text style={styles.bannerRedTexto}>
-                Red activa · {comunidad.vecinos_conectados ?? 0} vecino(s) conectado(s)
-              </Text>
+              <IndicadorPulso color={colors.exito} />
+              <View style={styles.bannerTextos}>
+                <Text style={styles.bannerRedTexto}>{comunidad.nombre}</Text>
+                <Text style={styles.bannerSubtexto}>
+                  {comunidad.vecinos_conectados ?? 0} vecino(s) conectado(s)
+                </Text>
+              </View>
             </View>
-            <Text style={styles.bannerOnline}>● ONLINE</Text>
+            <View style={styles.pastillaEstado}>
+              <Text style={styles.pastillaEstadoTexto}>EN LÍNEA</Text>
+            </View>
           </View>
         ) : (
-          <Link href="/(app)/communities" style={styles.bannerSinComunidad}>
-            Aún no perteneces a una comunidad: el botón de pánico no alcanzará a ningún vecino.
-            Toca aquí para buscar o crear una.
+          <Link href="/(app)/communities" asChild>
+            <Pressable style={styles.bannerSinComunidad}>
+              <Ionicons name="alert-circle-outline" size={20} color={colors.acento} />
+              <Text style={styles.bannerSinComunidadTexto}>
+                Aún no perteneces a una comunidad: el botón de pánico no alcanzará a ningún vecino.
+                Toca para buscar o crear una.
+              </Text>
+              <Ionicons name="chevron-forward" size={18} color={colors.textoSecundario} />
+            </Pressable>
           </Link>
         )}
 
@@ -195,8 +309,8 @@ export function HomeCiudadano() {
         </View>
 
         {comunidad ? (
-          <>
-            <Text style={styles.muroTitulo}>MURO DE INCIDENCIAS</Text>
+          <View style={styles.seccionMuro}>
+            <TituloSeccion icono="megaphone-outline" titulo="Muro de incidencias" />
             {!muro || muro.length === 0 ? (
               <Text style={styles.muroVacio}>No hay incidencias recientes en tu comunidad.</Text>
             ) : (
@@ -206,11 +320,11 @@ export function HomeCiudadano() {
                 .slice(0, 5)
                 .map((item) => <MuroIncidenciaCard key={`${item.tipo}-${item.id}`} item={item} />)
             )}
-          </>
+          </View>
         ) : null}
 
         <View style={styles.seccionSecundaria}>
-          <Text style={styles.seccionTitulo}>MÁS OPCIONES</Text>
+          <TituloSeccion icono="apps-outline" titulo="Más opciones" />
           <View style={styles.grid}>
             <AccionRapida
               icono="time-outline"
@@ -247,49 +361,103 @@ export function HomeCiudadano() {
 }
 
 const styles = StyleSheet.create({
+  resplandorAmbiental: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 260,
+  },
   contenedor: {
     padding: 24,
-    backgroundColor: colors.fondo,
   },
   encabezado: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 16,
+    alignItems: 'center',
+    gap: 12,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: colors.borde,
+    padding: 14,
+    marginBottom: 20,
+    // Sombra suave tintada al fondo para dar elevación (no gris puro).
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 6,
   },
   avatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     backgroundColor: colors.superficieAlterna,
     borderWidth: 2,
     borderColor: colors.acento,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
   },
   avatarTexto: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '700',
     color: colors.texto,
   },
   encabezadoTextos: {
     flex: 1,
   },
+  saludoEtiqueta: {
+    fontSize: 11,
+    color: colors.acento,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+  },
   saludo: {
     fontSize: 17,
     fontWeight: '700',
     color: colors.texto,
+    marginTop: 1,
+  },
+  encabezadoMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 6,
+  },
+  pastillaRol: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: colors.acento + '1A',
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  pastillaRolLider: {
+    backgroundColor: colors.primario + '1F',
+  },
+  pastillaRolTexto: {
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 1,
+    color: colors.acento,
+  },
+  pastillaRolTextoLider: {
+    color: colors.primario,
   },
   miembroDesde: {
     fontSize: 11,
     color: colors.textoSecundario,
-    marginTop: 2,
+    textTransform: 'capitalize',
   },
-  cerrarSesion: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: colors.peligro,
-    letterSpacing: 0.5,
+  botonSalir: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.superficieAlterna,
+    borderWidth: 1,
+    borderColor: colors.borde,
   },
   bannerRed: {
     flexDirection: 'row',
@@ -297,54 +465,88 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: colors.superficie,
     borderWidth: 1,
-    borderColor: colors.exito,
-    borderRadius: 12,
-    paddingVertical: 10,
+    borderColor: colors.exito + '55',
+    borderRadius: 14,
+    paddingVertical: 12,
     paddingHorizontal: 14,
     marginBottom: 20,
   },
   bannerRedFila: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 12,
+    flex: 1,
   },
-  puntoVerde: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: colors.exito,
+  bannerTextos: {
+    flex: 1,
   },
   bannerRedTexto: {
     color: colors.texto,
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  bannerOnline: {
-    color: colors.exito,
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: '700',
+  },
+  bannerSubtexto: {
+    color: colors.textoSecundario,
+    fontSize: 11,
+    marginTop: 1,
   },
   bannerSuspendida: {
-    borderColor: colors.peligro,
+    borderColor: colors.peligro + '66',
   },
-  puntoRojo: {
-    backgroundColor: colors.peligro,
+  puntoContenedor: {
+    width: 10,
+    height: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  bannerSuspendidaTexto: {
+  puntoHalo: {
+    position: 'absolute',
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  punto: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  pastillaEstado: {
+    backgroundColor: colors.exito + '1F',
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  pastillaEstadoRoja: {
+    backgroundColor: colors.peligro + '1F',
+  },
+  pastillaEstadoTexto: {
+    color: colors.exito,
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 1,
+  },
+  pastillaEstadoTextoRojo: {
     color: colors.peligro,
-    fontSize: 11,
-    fontWeight: '700',
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 1,
   },
   bannerSinComunidad: {
-    color: colors.acento,
-    fontSize: 13,
-    textAlign: 'center',
-    backgroundColor: colors.superficie,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: colors.acento + '0F',
     borderWidth: 1,
-    borderColor: colors.borde,
-    borderRadius: 12,
+    borderColor: colors.acento + '40',
+    borderRadius: 14,
     padding: 14,
     marginBottom: 20,
+  },
+  bannerSinComunidadTexto: {
+    flex: 1,
+    color: colors.texto,
+    fontSize: 12,
+    lineHeight: 17,
   },
   centroPanico: {
     alignItems: 'center',
@@ -364,13 +566,8 @@ const styles = StyleSheet.create({
     gap: 12,
     marginTop: 20,
   },
-  muroTitulo: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: colors.acento,
-    letterSpacing: 1,
-    marginTop: 28,
-    marginBottom: 12,
+  seccionMuro: {
+    marginTop: 20,
   },
   muroVacio: {
     color: colors.textoSecundario,
@@ -383,12 +580,5 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: colors.borde,
     paddingTop: 20,
-  },
-  seccionTitulo: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: colors.textoSecundario,
-    letterSpacing: 1,
-    marginBottom: 12,
   },
 });
