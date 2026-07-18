@@ -20,8 +20,21 @@ class ContactoEmergenciaRequest extends FormRequest
 
         return [
             'nombre' => [$sometimesEnCreacion, 'string', 'max:100'],
-            'telefono' => [$sometimesEnCreacion, 'string', 'max:20'],
+            // Solo dígitos, con un '+' inicial opcional. El teléfono alimenta los
+            // enlaces tel:/sms: del botón de pánico, así que cualquier símbolo o
+            // letra lo dejaría inservible en una emergencia.
+            'telefono' => [$sometimesEnCreacion, 'string', 'regex:/^\+?[0-9]{7,15}$/'],
             'parentesco' => ['nullable', 'string', 'max:50'],
+        ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return [
+            'telefono.regex' => 'Ingresa un teléfono válido: solo dígitos (7 a 15), con un + inicial opcional.',
         ];
     }
 }

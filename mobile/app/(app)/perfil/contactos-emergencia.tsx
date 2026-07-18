@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ActivityIndicator, FlatList, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 
 import {
@@ -18,9 +18,42 @@ export default function ContactosEmergenciaScreen() {
   const { mutate: eliminar } = useEliminarContactoEmergencia();
 
   const [form, setForm] = useState({ nombre: '', telefono: '', parentesco: '' });
+  const [errorTelefono, setErrorTelefono] = useState<string>();
 
-  const actualizarCampo = (campo: keyof typeof form) => (valor: string) =>
+  const actualizarCampo = (campo: keyof typeof form) => (valor: string) => {
     setForm((anterior) => ({ ...anterior, [campo]: valor }));
+  };
+
+  // Deja escribir solo un + inicial opcional y como máximo 10 dígitos, para que
+  // el valor nunca exceda lo que acepta el backend (ContactoEmergenciaRequest).
+  const cambiarTelefono = (valor: string) => {
+    const tieneMas = valor.trimStart().startsWith('+');
+    const digitos = valor.replace(/\D/g, '').slice(0, 10);
+    const telefono = `${tieneMas ? '+' : ''}${digitos}`;
+
+    setForm((anterior) => ({ ...anterior, telefono }));
+    setErrorTelefono(undefined);
+  };
+
+  // Debe coincidir con la regla del backend (ContactoEmergenciaRequest): solo
+  // dígitos con un + inicial opcional, para que el teléfono sirva a los enlaces
+  // tel:/sms: del botón de pánico.
+  const TELEFONO_VALIDO = /^\+?[0-9]{9,10}$/;
+
+  const agregar = () => {
+    const telefono = form.telefono.trim();
+
+    if (!TELEFONO_VALIDO.test(telefono)) {
+      setErrorTelefono('Ingresa un teléfono válido: Solo numeros de 10 digitos.');
+
+      return;
+    }
+
+    crear(
+      { ...form, telefono },
+      { onSuccess: () => setForm({ nombre: '', telefono: '', parentesco: '' }) },
+    );
+  };
 
   return (
     <PantallaSegura>
@@ -33,16 +66,15 @@ export default function ContactosEmergenciaScreen() {
 
         {isLoading ? (
           <ActivityIndicator size="large" color={colors.acento} />
+        ) : !contactos || contactos.length === 0 ? (
+          <Text style={styles.vacio}>Aún no tienes contactos agregados.</Text>
         ) : (
-          <FlatList
-            data={contactos}
-            keyExtractor={(item) => String(item.id)}
-            style={styles.lista}
-            ListEmptyComponent={
-              <Text style={styles.vacio}>Aún no tienes contactos agregados.</Text>
-            }
-            renderItem={({ item }) => (
-              <View style={styles.item}>
+          // Lista corta renderizada con map (no FlatList): una lista virtualizada
+          // anidada en el ScrollView de esta pantalla dispara el warning de
+          // "VirtualizedLists should never be nested inside plain ScrollViews".
+          <View style={styles.lista}>
+            {contactos.map((item) => (
+              <View key={item.id} style={styles.item}>
                 <View>
                   <Text style={styles.itemNombre}>{item.nombre}</Text>
                   <Text style={styles.itemDetalle}>
@@ -51,8 +83,8 @@ export default function ContactosEmergenciaScreen() {
                 </View>
                 <Boton titulo="Eliminar" variante="secundario" onPress={() => eliminar(item.id)} />
               </View>
-            )}
-          />
+            ))}
+          </View>
         )}
 
         <Text style={styles.subtitulo}>Agregar nuevo contacto</Text>
@@ -60,8 +92,10 @@ export default function ContactosEmergenciaScreen() {
         <Campo
           etiqueta="Teléfono"
           value={form.telefono}
-          onChangeText={actualizarCampo('telefono')}
+          onChangeText={cambiarTelefono}
           keyboardType="phone-pad"
+          maxLength={11}
+          error={errorTelefono}
         />
         <Campo
           etiqueta="Parentesco"
@@ -69,13 +103,7 @@ export default function ContactosEmergenciaScreen() {
           onChangeText={actualizarCampo('parentesco')}
         />
 
-        <Boton
-          titulo="Agregar contacto"
-          cargando={creando}
-          onPress={() =>
-            crear(form, { onSuccess: () => setForm({ nombre: '', telefono: '', parentesco: '' }) })
-          }
-        />
+        <Boton titulo="Agregar contacto" cargando={creando} onPress={agregar} />
       </KeyboardAwareScrollView>
     </PantallaSegura>
   );
@@ -102,7 +130,6 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   lista: {
-    maxHeight: 240,
     marginBottom: 8,
   },
   vacio: {

@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import * as SMS from 'expo-sms';
 import { Alert, Linking, Platform, StyleSheet, Text, View } from 'react-native';
 
 import { useAuthStore } from '@/src/features/auth/store/authStore';
@@ -34,19 +35,29 @@ export function EscaladaEmergencia({ latitud, longitud }: Props) {
 
   const llamar = (numero: string) => void Linking.openURL(`tel:${numero}`);
 
-  const avisarContactos = () => {
+  const avisarContactos = async () => {
     if (!contactos || contactos.length === 0) {
       return;
     }
 
-    const numeros = contactos.map((contacto) => contacto.telefono).join(',');
-    const cuerpo = encodeURIComponent(
-      construirMensaje(usuario?.nombres ?? 'un vecino', latitud, longitud),
-    );
-    // El separador del cuerpo cambia por plataforma: Android usa '?', iOS '&'.
-    const separador = Platform.OS === 'ios' ? '&' : '?';
+    const numeros = contactos.map((contacto) => contacto.telefono);
+    const mensaje = construirMensaje(usuario?.nombres ?? 'un vecino', latitud, longitud);
 
-    Linking.openURL(`sms:${numeros}${separador}body=${cuerpo}`).catch(() =>
+    // expo-sms abre el compositor nativo con TODOS los destinatarios a la vez;
+    // el esquema sms: con varios números por URL es poco fiable (en iOS suele
+    // quedarse solo con el primero).
+    if (await SMS.isAvailableAsync()) {
+      await SMS.sendSMSAsync(numeros, mensaje);
+
+      return;
+    }
+
+    // Respaldo para dispositivos sin capacidad de SMS (ej. tablets): abre la app
+    // de mensajes con el primer contacto y el cuerpo ya escrito.
+    const separador = Platform.OS === 'ios' ? '&' : '?';
+    const cuerpo = encodeURIComponent(mensaje);
+
+    Linking.openURL(`sms:${numeros[0]}${separador}body=${cuerpo}`).catch(() =>
       Alert.alert(
         'No se pudo abrir mensajes',
         'Tu dispositivo no permitió abrir la app de mensajes. Llama directamente a tus contactos.',
@@ -71,7 +82,11 @@ export function EscaladaEmergencia({ latitud, longitud }: Props) {
         </Text>
       ) : (
         <>
-          <Boton titulo="Avisar a mis contactos" variante="secundario" onPress={avisarContactos} />
+          <Boton
+            titulo="Avisar a mis contactos"
+            variante="secundario"
+            onPress={() => void avisarContactos()}
+          />
 
           <View style={styles.lista}>
             {contactos.map((contacto) => (
