@@ -40,8 +40,6 @@ export function EscudoAnimado() {
 
   return (
     <View style={styles.contenedor}>
-      <View style={styles.resplandor} />
-
       <View style={styles.iconoContenedor}>
         <Animated.View
           style={[styles.anilloExterior, { transform: [{ scale: escala }], opacity: opacidad }]}
@@ -69,14 +67,6 @@ const styles = StyleSheet.create({
   contenedor: {
     alignItems: 'center',
     marginBottom: 32,
-  },
-  resplandor: {
-    position: 'absolute',
-    top: -60,
-    width: 280,
-    height: 280,
-    borderRadius: 140,
-    backgroundColor: colors.acento + '15',
   },
   iconoContenedor: {
     width: 100,
