@@ -9,6 +9,7 @@ import { MuroIncidenciaCard } from '@/src/features/communities/components/MuroIn
 import { BotonPanico } from '@/src/features/panic/components/BotonPanico';
 import { EstadoColaBanner } from '@/src/features/panic/components/EstadoColaBanner';
 import { PanelAlertaEnviada } from '@/src/features/panic/components/PanelAlertaEnviada';
+import { useDeteccionSacudida } from '@/src/features/panic/hooks/useDeteccionSacudida';
 import { usePanicStore } from '@/src/features/panic/store/panicStore';
 import { AccionRapida } from '@/src/shared/components/AccionRapida';
 import { PantallaSegura } from '@/src/shared/components/PantallaSegura';
@@ -68,6 +69,14 @@ export function HomeCiudadano() {
 
     await activar(ubicacion);
   };
+
+  // Segunda vía de activación: sacudir el teléfono con fuerza dispara el mismo
+  // flujo que mantener el botón. Se apaga mientras hay una alerta en curso o la
+  // comunidad está suspendida, para no reenviar ni gastar batería en vano.
+  useDeteccionSacudida({
+    habilitado: !alertaEnCurso && !comunidadSuspendida,
+    onSacudida: () => void manejarActivacion(),
+  });
 
   const llamarEcu911 = () => void Linking.openURL('tel:911');
 
@@ -167,7 +176,12 @@ export function HomeCiudadano() {
           {alertaEnCurso ? (
             <PanelAlertaEnviada alerta={alertaEnCurso} tieneComunidad={Boolean(comunidad)} />
           ) : (
-            <BotonPanico activando={false} onActivar={() => void manejarActivacion()} />
+            <>
+              <BotonPanico activando={false} onActivar={() => void manejarActivacion()} />
+              <Text style={styles.pistaSacudida}>
+                También puedes sacudir el teléfono con fuerza para enviar una alerta.
+              </Text>
+            </>
           )}
         </View>
 
@@ -336,6 +350,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 12,
+  },
+  pistaSacudida: {
+    color: colors.textoSecundario,
+    fontSize: 13,
+    marginTop: 16,
+    textAlign: 'center',
+    paddingHorizontal: 24,
   },
   grid: {
     flexDirection: 'row',
