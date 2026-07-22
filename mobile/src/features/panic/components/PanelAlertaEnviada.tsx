@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Alert, StyleSheet, Text, View } from 'react-native';
 
 import { EscaladaEmergencia } from '@/src/features/panic/components/EscaladaEmergencia';
@@ -9,6 +9,9 @@ import { Boton } from '@/src/shared/components/Boton';
 import { colors } from '@/src/shared/theme/colors';
 
 const ESTADOS_CANCELABLES: AlertaEnCurso['estado'][] = [null, 'enviada'];
+
+/** Segundos que el acuse queda a la vista antes de devolver el botón de pánico. */
+const SEGUNDOS_VISIBLE = 5;
 
 interface Props {
   alerta: AlertaEnCurso;
@@ -20,33 +23,63 @@ interface Props {
  * vecino que reciba la alerta, y las autoridades no se notifican solas en
  * ningún caso. De ahí que la ayuda real (911 y contactos) esté siempre a mano.
  *
- * No se auto-descarta: tiene acciones que el usuario debe poder pulsar con
- * calma en mitad de una emergencia.
+ * El acuse es momentáneo: se muestra SEGUNDOS_VISIBLE segundos —ventana para
+ * arrepentirse de un disparo accidental— y luego devuelve el botón de pánico,
+ * de modo que se pueda volver a alertar sin quedar atrapado en esta pantalla.
+ * La alerta ya salió al pulsar el botón: esta cuenta atrás no la retrasa.
  */
 export function PanelAlertaEnviada({ alerta, tieneComunidad }: Props) {
   const cancelarEnCurso = usePanicStore((state) => state.cancelarEnCurso);
   const descartarAlertaEnCurso = usePanicStore((state) => state.descartarAlertaEnCurso);
   const [cancelando, setCancelando] = useState(false);
+  const [restantes, setRestantes] = useState(SEGUNDOS_VISIBLE);
+  // Con el diálogo de confirmación abierto la cuenta se detiene: si venciera,
+  // vaciaría la alerta del store y el "Sí, cancelar" se quedaría sin efecto.
+  const [pausado, setPausado] = useState(false);
 
   const esCancelable = ESTADOS_CANCELABLES.includes(alerta.estado);
 
-  const confirmarCancelar = () => {
-    Alert.alert('Cancelar alerta', '¿Confirmas que quieres cancelar tu alerta de pánico?', [
-      { text: 'No', style: 'cancel' },
-      {
-        text: 'Sí, cancelar',
-        style: 'destructive',
-        onPress: async () => {
-          setCancelando(true);
+  useEffect(() => {
+    if (pausado) {
+      return;
+    }
 
-          try {
-            await cancelarEnCurso();
-          } finally {
-            setCancelando(false);
-          }
+    if (restantes <= 0) {
+      descartarAlertaEnCurso();
+
+      return;
+    }
+
+    const temporizador = setTimeout(() => setRestantes((valor) => valor - 1), 1000);
+
+    return () => clearTimeout(temporizador);
+  }, [restantes, pausado, descartarAlertaEnCurso]);
+
+  const confirmarCancelar = () => {
+    setPausado(true);
+
+    Alert.alert(
+      'Cancelar alerta',
+      '¿Confirmas que quieres cancelar tu alerta de pánico?',
+      [
+        { text: 'No', style: 'cancel', onPress: () => setPausado(false) },
+        {
+          text: 'Sí, cancelar',
+          style: 'destructive',
+          onPress: async () => {
+            setCancelando(true);
+
+            try {
+              await cancelarEnCurso();
+            } finally {
+              setCancelando(false);
+            }
+          },
         },
-      },
-    ]);
+      ],
+      // En Android el diálogo también se cierra con el botón atrás.
+      { onDismiss: () => setPausado(false) },
+    );
   };
 
   return (
@@ -76,6 +109,14 @@ export function PanelAlertaEnviada({ alerta, tieneComunidad }: Props) {
       ) : (
         <Boton titulo="Volver" variante="secundario" onPress={descartarAlertaEnCurso} />
       )}
+
+      {!pausado ? (
+        <Text style={styles.cuentaAtras}>
+          {esCancelable
+            ? `Puedes cancelarla durante ${restantes} s`
+            : `El botón vuelve en ${restantes} s`}
+        </Text>
+      ) : null}
 
       <EscaladaEmergencia latitud={alerta.latitud} longitud={alerta.longitud} />
     </View>
@@ -123,5 +164,10 @@ const styles = StyleSheet.create({
   subtituloSinComunidad: {
     color: colors.peligro,
     fontWeight: '600',
+  },
+  cuentaAtras: {
+    color: colors.textoSecundario,
+    fontSize: 11,
+    marginTop: 10,
   },
 });
