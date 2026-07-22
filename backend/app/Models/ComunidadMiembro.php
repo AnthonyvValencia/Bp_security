@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[Fillable(['comunidad_id', 'usuario_id', 'estado', 'fecha_ingreso'])]
+#[Fillable(['comunidad_id', 'usuario_id', 'estado', 'fecha_ingreso', 'chat_leido_id'])]
 class ComunidadMiembro extends Model
 {
     protected $table = 'comunidad_miembros';

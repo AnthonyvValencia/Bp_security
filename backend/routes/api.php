@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\Communities\MembershipController;
 use App\Http\Controllers\Api\Communities\MuroController;
 use App\Http\Controllers\Api\Panic\PanicAlertController;
 use App\Http\Controllers\Api\Reports\ReportController;
+use App\Http\Controllers\Api\ResumenNotificacionesController;
 use App\Http\Controllers\Api\Users\EmergencyContactController;
 use App\Http\Controllers\Api\Users\ProfileController;
 use Illuminate\Support\Facades\Route;
@@ -31,6 +32,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('contactos-emergencia', [EmergencyContactController::class, 'guardar']);
     Route::patch('contactos-emergencia/{contacto}', [EmergencyContactController::class, 'actualizar']);
     Route::delete('contactos-emergencia/{contacto}', [EmergencyContactController::class, 'eliminar']);
+
+    // Contadores de pendientes que el home pinta como insignias rojas.
+    Route::get('resumen-notificaciones', [ResumenNotificacionesController::class, 'resumen']);
 
     Route::get('comunidades', [CommunityController::class, 'index']);
     Route::post('comunidades', [CommunityController::class, 'solicitarCreacion']);
@@ -65,6 +69,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('comunidades/{comunidad}/chat', [ChatController::class, 'index']);
     Route::post('comunidades/{comunidad}/chat', [ChatController::class, 'enviar'])->middleware('throttle:chat');
     Route::delete('chat/mensajes/{mensaje}', [ChatController::class, 'eliminar']);
+    Route::post('comunidades/{comunidad}/chat/leido', [ResumenNotificacionesController::class, 'marcarChatLeido']);
 
     Route::middleware('admin')->prefix('admin')->group(function () {
         Route::get('comunidades/pendientes', [CommunityApprovalController::class, 'pendientes']);
