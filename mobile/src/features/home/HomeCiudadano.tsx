@@ -19,6 +19,7 @@ import { useCerrarSesion } from '@/src/features/auth/hooks/useCerrarSesion';
 import { useAuthStore } from '@/src/features/auth/store/authStore';
 import { useMiComunidad, useMuroComunidad } from '@/src/features/communities/hooks/useComunidades';
 import { MuroIncidenciaCard } from '@/src/features/communities/components/MuroIncidenciaCard';
+import { useResumenNotificaciones } from '@/src/features/notifications/hooks/useNotificaciones';
 import { BotonPanico } from '@/src/features/panic/components/BotonPanico';
 import { EstadoColaBanner } from '@/src/features/panic/components/EstadoColaBanner';
 import { PanelAlertaEnviada } from '@/src/features/panic/components/PanelAlertaEnviada';
@@ -96,6 +97,9 @@ export function HomeCiudadano() {
   const { mutate: cerrarSesion } = useCerrarSesion();
   const { data: comunidad } = useMiComunidad();
   const { data: muro } = useMuroComunidad(comunidad?.id ?? 0);
+  // Contadores de pendientes (insignias rojas); se mantienen en vivo desde
+  // el layout con useNotificacionesTiempoReal.
+  const { data: resumen } = useResumenNotificaciones();
 
   const cola = usePanicStore((state) => state.cola);
   const alertaEnCurso = usePanicStore((state) => state.alertaEnCurso);
@@ -304,7 +308,12 @@ export function HomeCiudadano() {
         <View style={styles.grid}>
           <AccionRapida icono="call" titulo="Llamar ECU 911" onPress={llamarEcu911} />
           <AccionRapida icono="location" titulo="Compartir GPS" onPress={() => void compartirGPS()} />
-          <AccionRapida icono="chatbubbles" titulo="Chat vecinal" onPress={abrirChat} />
+          <AccionRapida
+            icono="chatbubbles"
+            titulo="Chat vecinal"
+            onPress={abrirChat}
+            insignia={resumen?.chat_no_leidos}
+          />
           <AccionRapida icono="warning" titulo="Reportar Novedad" onPress={abrirReportar} />
         </View>
 
@@ -336,10 +345,13 @@ export function HomeCiudadano() {
               titulo="Mis reportes"
               onPress={() => router.push('/(app)/reports')}
             />
+            {/* Las solicitudes de ingreso se atienden dentro de "Mi comunidad",
+                así que la insignia se propaga por toda la ruta hasta allí. */}
             <AccionRapida
               icono="people-outline"
               titulo="Comunidades"
               onPress={() => router.push('/(app)/communities')}
+              insignia={resumen?.solicitudes_ingreso}
             />
             <AccionRapida
               icono="person-outline"
@@ -351,6 +363,9 @@ export function HomeCiudadano() {
                 icono="shield-outline"
                 titulo="Alertas de mi comunidad"
                 onPress={() => router.push('/(app)/panic/comunidad')}
+                // Esa pantalla gestiona alertas Y reportes, así que la insignia
+                // suma ambos pendientes.
+                insignia={(resumen?.alertas_abiertas ?? 0) + (resumen?.reportes_abiertos ?? 0)}
               />
             ) : null}
           </View>

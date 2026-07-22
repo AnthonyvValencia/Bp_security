@@ -18,6 +18,7 @@ import {
   useSalirComunidad,
   useSolicitarIngreso,
 } from '@/src/features/communities/hooks/useComunidades';
+import { useResumenNotificaciones } from '@/src/features/notifications/hooks/useNotificaciones';
 import { obtenerMensajeError } from '@/src/shared/api/obtenerMensajeError';
 import { Boton } from '@/src/shared/components/Boton';
 import { PantallaSegura } from '@/src/shared/components/PantallaSegura';
@@ -32,6 +33,7 @@ export default function DetalleComunidadScreen() {
 
   const { data: comunidad, isLoading } = useComunidad(comunidadId);
   const { data: miComunidad } = useMiComunidad();
+  const { data: resumen } = useResumenNotificaciones();
   const { mutate: solicitarIngreso, isPending } = useSolicitarIngreso();
   const { mutate: salir, isPending: saliendo } = useSalirComunidad();
 
@@ -149,6 +151,7 @@ export default function DetalleComunidadScreen() {
                 onPress={() =>
                   router.push(`/(app)/communities/requests?comunidadId=${comunidad.id}`)
                 }
+                insignia={resumen?.solicitudes_ingreso}
               />
               <FilaAccion
                 icono="people-outline"
@@ -227,10 +230,13 @@ function FilaAccion({
   icono,
   titulo,
   onPress,
+  insignia,
 }: {
   icono: NombreIcono;
   titulo: string;
   onPress: () => void;
+  /** Conteo de pendientes; si es > 0 se muestra como insignia roja. */
+  insignia?: number;
 }) {
   return (
     <Pressable style={styles.filaAccion} onPress={onPress}>
@@ -238,6 +244,11 @@ function FilaAccion({
         <Ionicons name={icono} size={18} color={colors.acento} />
       </View>
       <Text style={styles.filaAccionTexto}>{titulo}</Text>
+      {typeof insignia === 'number' && insignia > 0 ? (
+        <View style={styles.insignia}>
+          <Text style={styles.insigniaTexto}>{insignia > 99 ? '99+' : insignia}</Text>
+        </View>
+      ) : null}
       <Ionicons name="chevron-forward" size={18} color={colors.textoSecundario} />
     </Pressable>
   );
@@ -407,6 +418,21 @@ const styles = StyleSheet.create({
     color: colors.texto,
     fontSize: 14,
     fontWeight: '600',
+  },
+  insignia: {
+    minWidth: 20,
+    height: 20,
+    borderRadius: 10,
+    paddingHorizontal: 5,
+    marginRight: 8,
+    backgroundColor: colors.peligro,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  insigniaTexto: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '800',
   },
   aviso: {
     color: colors.textoSecundario,

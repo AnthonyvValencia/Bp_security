@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -18,6 +18,7 @@ import { useAuthStore } from '@/src/features/auth/store/authStore';
 import { BurbujaMensaje } from '@/src/features/chat/components/BurbujaMensaje';
 import { useEliminarMensaje, useEnviarMensaje, useMensajesChat } from '@/src/features/chat/hooks/useChat';
 import { useMiComunidad } from '@/src/features/communities/hooks/useComunidades';
+import { useMarcarChatLeido } from '@/src/features/notifications/hooks/useNotificaciones';
 import { obtenerMensajeError } from '@/src/shared/api/obtenerMensajeError';
 import { PantallaSegura } from '@/src/shared/components/PantallaSegura';
 import { colors } from '@/src/shared/theme/colors';
@@ -31,7 +32,19 @@ export default function ChatScreen() {
   const { mutate: enviar, isPending: enviando } = useEnviarMensaje(comunidadId);
   const { mutate: eliminar } = useEliminarMensaje(comunidadId);
 
+  const { mutate: marcarLeido } = useMarcarChatLeido();
+
   const [texto, setTexto] = useState('');
+
+  // Estando dentro del chat no hay nada "sin leer": se marca al abrir y cada
+  // vez que entra un mensaje nuevo, para que la insignia del home no se
+  // encienda mientras el usuario ya lo está mirando.
+  const cantidadMensajes = mensajes?.length ?? 0;
+  useEffect(() => {
+    if (comunidadId > 0) {
+      marcarLeido(comunidadId);
+    }
+  }, [comunidadId, cantidadMensajes, marcarLeido]);
 
   // Liderazgo por lider_id (igual que las Policies del backend), no por rol.
   const esLider = comunidad?.lider?.id === usuario?.id;

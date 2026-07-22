@@ -9,6 +9,7 @@ import {
   useMiComunidad,
 } from '@/src/features/communities/hooks/useComunidades';
 import type { Comunidad } from '@/src/features/communities/types';
+import { useResumenNotificaciones } from '@/src/features/notifications/hooks/useNotificaciones';
 import { Boton } from '@/src/shared/components/Boton';
 import { Campo } from '@/src/shared/components/Campo';
 import { PantallaSegura } from '@/src/shared/components/PantallaSegura';
@@ -20,6 +21,8 @@ export default function ComunidadesScreen() {
   // El admin gestiona comunidades desde su panel: no crea ni se une a ninguna.
   const esAdmin = usuario?.rol === 'administrador';
   const { data: miComunidad, isLoading: cargandoMiComunidad } = useMiComunidad();
+  const { data: resumen } = useResumenNotificaciones();
+  const solicitudesPendientes = resumen?.solicitudes_ingreso ?? 0;
   const {
     data: comunidades,
     isLoading,
@@ -41,6 +44,15 @@ export default function ComunidadesScreen() {
             <Text style={styles.miComunidadEtiqueta}>MI COMUNIDAD</Text>
             <Text style={styles.miComunidadNombre}>{miComunidad.nombre}</Text>
           </View>
+          {/* Avisa que dentro hay solicitudes de ingreso esperando (solo llega
+              con contenido si el usuario es el líder). */}
+          {solicitudesPendientes > 0 ? (
+            <View style={styles.insignia}>
+              <Text style={styles.insigniaTexto}>
+                {solicitudesPendientes > 99 ? '99+' : solicitudesPendientes}
+              </Text>
+            </View>
+          ) : null}
           <Ionicons name="chevron-forward" size={20} color={colors.textoSecundario} />
         </Pressable>
       ) : !cargandoMiComunidad && !esAdmin ? (
@@ -130,6 +142,20 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: colors.texto,
+  },
+  insignia: {
+    minWidth: 20,
+    height: 20,
+    borderRadius: 10,
+    paddingHorizontal: 5,
+    backgroundColor: colors.peligro,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  insigniaTexto: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '800',
   },
   separador: {
     height: 16,
